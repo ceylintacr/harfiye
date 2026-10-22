@@ -1,0 +1,2162 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body>
+<title>Harfiye</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Courier+Prime:wght@400;700&family=IBM+Plex+Mono:wght@500;600&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: gazete bulmaca sayfası — üstte manşet (ad, sayı no., tarih çizgisi), ortada 6×5 bulmaca ızgarası,
+   altta daktilo tuşlu Türkçe Q klavye. Bilinçli olarak tek (açık) tema: kâğıt ve mürekkep. */
+:root {
+  --paper: #efebe0;
+  --paper-2: #e4dfd1;
+  --sheet: #faf8f2;
+  --ink: #1c1b18;
+  --ink-2: #57534a;
+  --hair: rgba(28, 27, 24, 0.22);
+  --hit: #2f7a4a;
+  --near: #d9a21b;
+  --miss: #b0392c;
+  --hit-ink: #fff;
+  --near-ink: #1c1b18;
+  --miss-ink: #fff;
+  --grain: rgba(28, 27, 24, 0.045);
+  --empty: rgba(250, 248, 242, .45);
+  --key-hover: #fff;
+  --veil: rgba(239, 235, 224, .78);
+  --worm: #8fbf5a;
+  --display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background-color: var(--paper);
+  background-image: radial-gradient(var(--grain) 1px, transparent 1.2px);
+  background-size: 4px 4px;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 16px;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+::selection { background: var(--near); color: var(--near-ink); }
+button, input { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ---------- manşet ---------- */
+.app { position: relative; height: 100%; display: flex; flex-direction: column; }
+.masthead {
+  padding-block: 8px 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.mast-top, .dateline { max-width: 760px; margin: 0 auto; }
+.mast-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 32px; }
+.issue { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+.tools { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.tool {
+  padding: 6px 8px; border: 1px solid transparent; background: none; cursor: pointer;
+  font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+}
+.tool:hover { border-color: var(--ink); }
+.tool.live { background: var(--ink); color: var(--paper); }
+.title {
+  margin: 2px 0 6px; text-align: center;
+  font-family: var(--display); font-weight: 900; font-size: clamp(2.5rem, 10vw, 3.7rem); line-height: .95; letter-spacing: -.01em;
+}
+.dateline {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 5px 2px; border-top: 4px double var(--ink); border-bottom: 1px solid var(--ink);
+  font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+}
+.dateline .sub b { font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 400px) { .issue { display: none; } .tools { margin-inline: auto; } }
+
+main {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding-block: 14px 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.stage { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+
+/* ---------- bulmaca ızgarası ---------- */
+.board {
+  --size: min(330px, calc(100vw - 40px), calc((100dvh - 434px) * 5 / 6));
+  width: max(200px, var(--size));
+  display: grid; grid-template-rows: repeat(6, 1fr); gap: 5px;
+}
+body.multi .board { --size: min(320px, calc(100vw - 40px), calc((100dvh - 486px) * 5 / 6)); }
+.row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.row.shake { animation: shake .45s; }
+@keyframes shake { 15%,55% { transform: translateX(-7px); } 35%,75% { transform: translateX(7px); } }
+.tile {
+  position: relative; aspect-ratio: 1; max-width: 100%; display: grid; place-items: center;
+  background: var(--sheet); border: 2px solid var(--ink);
+  font-family: var(--display); font-weight: 700; font-size: calc(var(--size) / 8.5); line-height: 1;
+  text-transform: uppercase; user-select: none;
+}
+.tile[data-n]::before {
+  content: attr(data-n); position: absolute; top: 3px; left: 4px;
+  font-family: var(--mono); font-weight: 500; font-size: max(9px, calc(var(--size) / 30)); line-height: 1; color: var(--ink-2);
+}
+.row:not(.active) .tile:not(.filled):not(.hit):not(.near):not(.miss) { background: var(--empty); border-color: var(--hair); }
+.tile.filled { animation: pop .12s ease-out; }
+@keyframes pop { 50% { transform: scale(1.06); } }
+.tile.flip { animation: flip .38s ease-in-out; }
+@keyframes flip { 50% { transform: rotateX(90deg); } }
+.tile.hit  { background: var(--hit);  color: var(--hit-ink); }
+.tile.near { background: var(--near); color: var(--near-ink); }
+.tile.miss { background: var(--miss); color: var(--miss-ink); }
+.tile.hit[data-n]::before, .tile.miss[data-n]::before { color: rgba(255, 255, 255, .75); }
+.tile.dance { animation: dance .5s ease-in-out; }
+@keyframes dance { 40% { transform: translateY(-14px); } 70% { transform: translateY(3px); } }
+
+/* ---------- ipucu ---------- */
+.hintbar { display: flex; align-items: center; justify-content: center; min-height: 36px; width: min(460px, 100%); }
+.hint-btn {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 6px 12px; background: var(--sheet); border: 1px solid var(--ink);
+  font-family: var(--mono); font-weight: 600; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+}
+.hint-btn:not(:disabled):hover { background: var(--ink); color: var(--paper); }
+.hint-btn:disabled { cursor: default; color: var(--ink-2); border-style: dashed; background: transparent; }
+.hint-btn svg { width: 15px; height: 15px; }
+.hint-text { font-style: italic; font-size: 15px; line-height: 1.4; text-align: center; padding: 7px 12px; background: var(--sheet); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.hint-text .chip { margin-right: 6px; font-style: normal; }
+
+.chip {
+  display: inline-block; padding: 1px 6px; vertical-align: 1px; border: 1px solid var(--ink);
+  font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+}
+.chip.bil { background: var(--ink); color: var(--paper); }
+.chip.fen { background: var(--paper-2); }
+.chip.gen { background: transparent; }
+
+/* ---------- yarışma: oyun sırasındaki şerit ---------- */
+.mpbar { width: min(560px, 100%); display: flex; justify-content: center; }
+.gchip {
+  display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%;
+  padding: 4px 4px 4px 12px; background: var(--sheet); border: 1px solid var(--ink);
+}
+.gchip .gn { font-family: var(--display); font-weight: 700; font-size: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gchip .rd { font-family: var(--mono); font-size: 11px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+.gchip .clock { font-family: var(--mono); font-weight: 600; font-size: 15px; background: var(--ink); color: var(--paper); padding: 2px 9px; font-variant-numeric: tabular-nums; }
+.mini { display: grid; grid-template-columns: repeat(5, 9px); gap: 2px; }
+.mini i { width: 9px; height: 9px; border: 1px solid var(--ink); background: var(--sheet); }
+.mini i.h { background: var(--hit); }
+.mini i.n { background: var(--near); }
+.mini i.m { background: var(--miss); }
+.miniboard { display: grid; gap: 2px; }
+.miniboard .mini.empty i { border-color: var(--hair); }
+
+/* ---------- daktilo klavye ---------- */
+.keyboard { width: min(520px, 100%); display: flex; flex-direction: column; gap: 7px; user-select: none; }
+.krow { display: flex; gap: 5px; justify-content: center; }
+.key {
+  flex: 1 1 0; min-width: 0; height: 52px; padding: 0; cursor: pointer;
+  background: var(--sheet); border: 1.5px solid var(--ink); border-radius: 4px; box-shadow: 0 2px 0 var(--ink);
+  font-family: var(--serif); font-weight: 600; font-size: 19px;
+  transition: transform .06s, box-shadow .06s, background-color .15s;
+  touch-action: manipulation;
+}
+.key:hover { background: var(--key-hover); }
+.key:active { transform: translateY(2px); box-shadow: 0 0 0 var(--ink); }
+.key.wide { flex-grow: 1.6; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; }
+.key.wide svg { width: 22px; height: 22px; }
+.key.enter { background: var(--ink); color: var(--paper); }
+.key.hit  { background: var(--hit); color: var(--hit-ink); }
+.key.near { background: var(--near); color: var(--near-ink); }
+.key.miss { background: var(--miss); color: var(--miss-ink); }
+@media (max-height: 700px) { .key { height: 44px; } }
+@media (max-width: 380px) { .krow { gap: 4px; } .key { font-size: 17px; } }
+
+/* ---------- bildirim ---------- */
+.toast {
+  position: fixed; left: 50%; top: calc(124px + env(safe-area-inset-top, 0px)); z-index: 40; transform: translateX(-50%);
+  padding: 8px 16px; background: var(--ink); color: var(--paper);
+  max-width: calc(100vw - 32px); text-align: center;
+  font-family: var(--mono); font-weight: 500; font-size: 13px; letter-spacing: .02em;
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out);
+}
+.toast.out { opacity: 0; transform: translate(-50%, -8px); pointer-events: none; }
+
+/* ---------- pencereler ---------- */
+.overlay {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
+  padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: rgba(28, 27, 24, .45);
+}
+.modal {
+  position: relative; width: min(440px, 100%); max-height: 100%; overflow-y: auto;
+  padding: 26px 22px 22px;
+  background: var(--sheet); border: 4px double var(--ink); box-shadow: 0 18px 40px rgba(0, 0, 0, .25);
+  animation: rise .24s var(--ease-out);
+}
+@keyframes rise { from { transform: translateY(8px) scale(.98); opacity: 0; } }
+.modal h2 { margin: 0 0 4px; font-family: var(--display); font-weight: 900; font-size: 28px; line-height: 1.1; text-align: center; text-wrap: balance; }
+.modal .lead { margin: 0 0 18px; text-align: center; color: var(--ink-2); font-style: italic; }
+.close {
+  position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; display: grid; place-items: center;
+  border: 1px solid transparent; background: none; cursor: pointer;
+}
+.close:hover { border-color: var(--ink); }
+.close svg { width: 18px; height: 18px; }
+.rules { margin: 0 0 16px; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; line-height: 1.5; }
+.ex { display: grid; gap: 6px; margin-bottom: 14px; }
+.ex .mini-row { display: flex; gap: 4px; }
+.ex .tile { width: 36px; font-size: 19px; }
+.ex p { margin: 0; font-size: 14px; color: var(--ink-2); }
+.ex p strong { color: var(--ink); }
+.note { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--ink); font-size: 14px; color: var(--ink-2); text-align: center; line-height: 1.5; }
+
+.answer { display: flex; justify-content: center; gap: 5px; margin: 8px 0 14px; }
+.answer .tile { width: 46px; font-size: 24px; }
+.def { margin: 0 0 18px; text-align: center; font-size: 15px; font-style: italic; line-height: 1.45; }
+.def .chip { margin-right: 6px; font-style: normal; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: 18px; text-align: center; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.stat { padding: 8px 4px; }
+.stat + .stat { border-left: 1px solid var(--hair); }
+.stat b { display: block; font-family: var(--display); font-weight: 900; font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.dist-h { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; }
+.dist-h::before, .dist-h::after { content: ""; flex: 1; border-top: 1px solid var(--ink); }
+.dist { display: grid; gap: 4px; margin-bottom: 20px; }
+.bar { display: grid; grid-template-columns: 14px 1fr; gap: 8px; align-items: center; font-family: var(--mono); font-weight: 600; font-size: 12px; font-variant-numeric: tabular-nums; }
+.bar i { display: block; min-width: 26px; padding: 1px 7px; text-align: right; font-style: normal; background: var(--paper-2); }
+.bar.now i { background: var(--hit); color: #fff; }
+.actions { display: flex; gap: 10px; }
+.btn {
+  flex: 1; min-height: 48px; padding: 0 12px; cursor: pointer;
+  background: var(--ink); color: var(--paper); border: 1px solid var(--ink);
+  font-family: var(--mono); font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+  transition: background-color .15s, color .15s;
+}
+.btn:hover:not(:disabled) { filter: brightness(.88); }
+.btn.ghost { background: transparent; color: var(--ink); }
+.btn.ghost:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+.btn:disabled { opacity: .45; cursor: default; }
+
+/* ---------- yarışma pencereleri ---------- */
+.tabs { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 18px; border-bottom: 1px solid var(--ink); }
+.tabs button { height: 40px; border: 0; border-bottom: 3px solid transparent; background: none; cursor: pointer; font-family: var(--mono); font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.tabs button[aria-selected="true"] { border-bottom-color: var(--ink); color: var(--ink); }
+.field { display: grid; gap: 4px; margin-bottom: 14px; }
+.field label { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.field input { height: 46px; padding: 0 4px; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0; background: transparent; font-family: var(--serif); font-size: 19px; }
+.field input:focus { outline: none; background: rgba(217, 162, 27, .12); }
+.field input::placeholder { color: var(--ink-2); opacity: .7; }
+#mp-code { font-family: var(--mono); letter-spacing: .35em; text-transform: uppercase; font-size: 22px; font-weight: 600; }
+.code-big { margin: 6px auto 10px; width: fit-content; padding: 4px 16px 4px 26px; border: 4px double var(--ink); background: var(--sheet); font-family: var(--mono); font-size: 40px; font-weight: 600; letter-spacing: .3em; }
+.group-big { margin: 8px auto 14px; width: fit-content; max-width: 100%; padding: 4px 16px; font-family: var(--display); font-style: italic; font-weight: 700; font-size: 30px; line-height: 1.2; text-align: center; overflow-wrap: anywhere; border-bottom: 3px double var(--ink); }
+.place { margin: 4px auto 14px; text-align: center; font-family: var(--display); font-weight: 900; font-size: 60px; line-height: 1; }
+.place small { display: block; margin-top: 8px; font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--ink-2); letter-spacing: .04em; }
+.plist { list-style: none; margin: 0 0 18px; padding: 0; border-top: 1px solid var(--ink); }
+.plist li { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 6px; border-bottom: 1px solid var(--hair); font-size: 16px; }
+.plist li.empty { color: var(--ink-2); font-style: italic; }
+.plist .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--display); font-weight: 700; }
+.plist .badge { font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 1px 6px; border: 1px solid var(--ink); }
+.plist .badge.you { background: var(--ink); color: var(--paper); }
+.plist .res { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 13px; }
+.plist li.win { background: rgba(217, 162, 27, .2); }
+.kick { width: 30px; height: 30px; border: 1px solid var(--ink); background: none; cursor: pointer; font-family: var(--mono); }
+.kick:hover { background: var(--miss); color: #fff; border-color: var(--miss); }
+.wait { margin: 0 0 14px; text-align: center; font-size: 14px; font-style: italic; color: var(--ink-2); }
+
+/* ---------- yönetici masası ---------- */
+.overlay.admin {
+  display: block; overflow-y: auto; z-index: 15;
+  background-color: var(--paper);
+  background-image: radial-gradient(var(--grain) 1px, transparent 1.2px);
+  background-size: 4px 4px;
+}
+.admin-in { max-width: 940px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; padding-block: 4px 28px; }
+.ad-bar { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 6px; border-bottom: 4px double var(--ink); }
+.ad-mark { font-family: var(--display); font-weight: 900; font-size: 34px; line-height: 1; }
+.eyebrow { font-family: var(--mono); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+.ad-head { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 680px) { .ad-head { grid-template-columns: minmax(0, 1fr); } }
+.ad-box { background: var(--sheet); border: 1px solid var(--ink); border-top: 4px solid var(--ink); padding: 14px 18px; min-width: 0; }
+.ad-code-box { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.ad-code-box .code-big { margin: 4px 0 8px; font-size: 46px; }
+.ad-hint { font-size: 13px; font-style: italic; color: var(--ink-2); max-width: 30ch; }
+.ad-ctrl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; align-items: center; }
+.ad-round { font-family: var(--display); font-weight: 900; font-size: 28px; line-height: 1.1; }
+.ad-round small { display: block; font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .06em; color: var(--ink-2); margin-top: 4px; }
+.ad-clock { font-family: var(--mono); font-weight: 600; font-size: 38px; font-variant-numeric: tabular-nums; background: var(--ink); color: var(--paper); padding: 2px 12px; }
+.ad-btns { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; }
+#ad-change.armed { background: var(--miss); border-color: var(--miss); color: #fff; }
+.ad-word { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 34px; }
+.ad-word .answer { margin: 0; gap: 4px; }
+.ad-word .answer .tile { width: 32px; font-size: 17px; }
+.ad-word .def { margin: 0; text-align: left; font-size: 14px; flex: 1 1 220px; }
+.link-btn { padding: 4px 10px; border: 1px solid var(--ink); background: none; cursor: pointer; font-family: var(--mono); font-weight: 600; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.link-btn:hover { background: var(--ink); color: var(--paper); }
+.ad-tabs { margin: 0; max-width: 420px; }
+.ad-table-wrap { overflow-x: auto; background: var(--sheet); border: 1px solid var(--ink); }
+table.rank { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.rank th { padding: 10px 12px; text-align: left; white-space: nowrap; border-bottom: 2px solid var(--ink); font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.rank td { padding: 9px 12px; border-bottom: 1px solid var(--hair); vertical-align: middle; white-space: nowrap; }
+.rank .pos { width: 3.5ch; font-family: var(--display); font-weight: 900; font-size: 26px; }
+.rank .gname { white-space: normal; min-width: 10ch; font-family: var(--display); font-weight: 700; font-size: 19px; overflow-wrap: anywhere; }
+.rank .num { font-family: var(--mono); font-size: 14px; }
+.rank .big { font-size: 18px; font-weight: 600; }
+.rank tr.top1 td { background: rgba(217, 162, 27, .18); }
+.pill { display: inline-block; padding: 1px 7px; border: 1px solid var(--ink); font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.pill.win { background: var(--hit); border-color: var(--hit); color: #fff; }
+.pill.lose { background: var(--miss); border-color: var(--miss); color: #fff; }
+.pill.play { background: var(--near); color: var(--near-ink); }
+.pill.idle { color: var(--ink-2); border-style: dashed; }
+.del { min-width: 30px; height: 28px; padding: 0 6px; border: 1px solid var(--ink); background: none; cursor: pointer; font-family: var(--mono); font-size: 12px; }
+.del.armed { background: var(--miss); border-color: var(--miss); color: #fff; }
+.ad-empty { margin: 0; padding: 28px 16px; text-align: center; color: var(--ink-2); font-style: italic; }
+#ad-rule { max-width: none; margin: -6px 0 0; }
+.ad-foot { display: flex; justify-content: center; }
+.ad-foot .btn { flex: 0 1 320px; }
+
+/* ---------- geri sayım ---------- */
+.count { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: var(--veil); pointer-events: none; }
+.count span { font-family: var(--display); font-weight: 900; font-size: min(34vw, 190px); line-height: 1; animation: tick 1s ease-out; }
+@keyframes tick { from { transform: scale(1.35); opacity: 0; } 30% { opacity: 1; } }
+
+#confetti { position: fixed; inset: 0; z-index: 25; pointer-events: none; width: 100%; height: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tile.filled, .tile.flip, .tile.dance, .row.shake, .modal, .count span { animation: none; }
+}
+
+/* ---------- manşet: mürekkep sayacı ve oyun modu ---------- */
+.mast-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ink {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; cursor: pointer;
+  border: 1px solid var(--ink); background: var(--sheet);
+  font-family: var(--mono); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.ink svg { width: 11px; height: 11px; }
+.ink.bump { animation: bump .45s var(--ease-out); }
+@keyframes bump { 35% { transform: scale(1.2); } }
+.modes { display: flex; align-items: center; gap: 2px; }
+.modes button {
+  padding: 2px 6px; border: 0; border-bottom: 2px solid transparent; background: none; cursor: pointer;
+  font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--ink-2);
+}
+.modes button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
+.modes .newbtn { margin-left: 6px; border: 1px solid var(--ink); color: var(--ink); }
+.modes .newbtn:hover { background: var(--ink); color: var(--paper); }
+@media (max-width: 400px) { .dateline .date { display: none; } }
+
+/* ---------- kitap kurdu ---------- */
+.hintbar { gap: 10px; min-height: 60px; }
+.hint-slot { display: flex; justify-content: center; min-width: 0; }
+.mascot-wrap { position: relative; flex: 0 0 auto; }
+.mascot { display: block; width: 58px; height: 58px; }
+.mascot svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.mascot.m-happy svg { animation: hop .5s var(--ease-in-out) 2; }
+@keyframes hop { 50% { transform: translateY(-6px); } }
+.mascot.big { width: 104px; height: 104px; margin: -4px auto 4px; }
+.bubble {
+  position: absolute; left: calc(100% + 4px); top: 2px; z-index: 3; white-space: nowrap;
+  padding: 4px 9px; background: var(--sheet); border: 1px solid var(--ink);
+  font-family: var(--serif); font-style: italic; font-size: 14px; animation: bubbleIn .2s var(--ease-out);
+}
+.bubble::before { content: ""; position: absolute; left: -6px; top: 9px; width: 9px; height: 9px; background: var(--sheet); border-left: 1px solid var(--ink); border-bottom: 1px solid var(--ink); transform: rotate(45deg); }
+
+/* ---------- sonuç penceresi: kazanç ---------- */
+.gain { margin: 0 0 16px; padding: 8px 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.gain ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.gain li { display: flex; justify-content: space-between; gap: 10px; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.gain li.tot { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--hair); font-weight: 600; font-size: 13px; }
+.unlock { margin-top: 8px; padding: 7px 10px; background: rgba(217, 162, 27, .22); text-align: center; font-family: var(--display); font-weight: 700; font-size: 15px; }
+.next-in { margin: 0 0 16px; text-align: center; font-family: var(--mono); font-size: 12px; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+
+/* ---------- dükkân ---------- */
+.modal.wide { width: min(560px, 100%); }
+.shop-top { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 14px; }
+.shop-top .mascot.big { margin: 0; }
+.ink-big { font-family: var(--display); font-weight: 900; font-size: 44px; line-height: 1; font-variant-numeric: tabular-nums; }
+.lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.freeze-row { margin-top: 8px; font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.link-btn:disabled { opacity: .4; cursor: default; }
+.miles { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 7px; }
+.miles li { display: grid; grid-template-columns: 74px minmax(0, 1fr) 9.5em; gap: 10px; align-items: center; font-size: 14px; }
+.miles .n { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; }
+.miles .track { position: relative; height: 8px; border: 1px solid var(--ink); background: var(--paper-2); }
+.miles .track i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--hit); }
+.miles .rw { font-family: var(--display); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.miles li.done .rw::before { content: "✓ "; color: var(--hit); }
+.miles li.sum { display: block; margin-top: 2px; font-family: var(--mono); font-size: 11px; color: var(--ink-2); text-align: center; }
+.items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.item { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 10px 10px; text-align: center; background: var(--paper); border: 1px solid var(--ink); }
+.item.on { box-shadow: inset 0 0 0 2px var(--ink); }
+.item .nm { font-family: var(--display); font-weight: 700; font-size: 16px; line-height: 1.15; }
+.item .note2 { font-family: var(--mono); font-size: 10px; color: var(--ink-2); min-height: 2.4em; }
+.item .btn { width: 100%; min-height: 36px; font-size: 11px; }
+.item .mascot { width: 72px; height: 72px; }
+.swatch { display: flex; gap: 4px; padding: 10px; border: 1px solid var(--ink); }
+.swatch i { width: 20px; height: 20px; border: 1.5px solid rgba(0, 0, 0, .55); }
+
+/* ---------- temalar ---------- */
+body[data-theme="night"] {
+  --paper: #191a1e; --paper-2: #24252b; --sheet: #202126; --ink: #ebe6d9; --ink-2: #a39e91; --hair: rgba(235, 230, 217, .22);
+  --hit: #3f9a62; --near: #e0b13a; --near-ink: #191a1e; --miss: #c9503f; --grain: rgba(255, 255, 255, .035);
+  --empty: rgba(32, 33, 38, .6); --key-hover: #2a2b31; --veil: rgba(25, 26, 30, .82); --worm: #9ccf6a;
+  color-scheme: dark;
+}
+body[data-theme="chalk"] {
+  --paper: #22392e; --paper-2: #2b463a; --sheet: #284236; --ink: #f2f0e6; --ink-2: #b8c5b9; --hair: rgba(242, 240, 230, .25);
+  --hit: #5fae6b; --near: #e8c450; --near-ink: #22392e; --miss: #d5675a; --grain: rgba(255, 255, 255, .04);
+  --empty: rgba(40, 66, 54, .5); --key-hover: #30503f; --veil: rgba(34, 57, 46, .84); --worm: #b7dc8f;
+  --display: "Caveat", "Comic Sans MS", cursive;
+  color-scheme: dark;
+}
+body[data-theme="chalk"] .tile { font-size: calc(var(--size) / 7); }
+body[data-theme="chalk"] .title { font-size: clamp(3rem, 12vw, 4.4rem); }
+body[data-theme="type"] {
+  --paper: #f2e8d2; --paper-2: #e7dabd; --sheet: #faf3e2; --ink: #2a2017; --ink-2: #6c5d4a; --hair: rgba(42, 32, 23, .22);
+  --hit: #5d7f3b; --near: #c9992d; --near-ink: #2a2017; --miss: #9b3e2b; --grain: rgba(42, 32, 23, .05);
+  --empty: rgba(250, 243, 226, .5); --key-hover: #fffaf0; --veil: rgba(242, 232, 210, .82); --worm: #a8ad5e;
+  --display: "Courier Prime", "Courier New", monospace; --serif: "Courier Prime", "Courier New", monospace;
+}
+body[data-theme="neon"] {
+  --paper: #0e0c16; --paper-2: #1a1628; --sheet: #14111f; --ink: #f4f2ff; --ink-2: #a49cc8; --hair: rgba(244, 242, 255, .2);
+  --hit: #19e08f; --hit-ink: #0e0c16; --near: #ffd23f; --near-ink: #0e0c16; --miss: #ff4d7d; --grain: rgba(255, 255, 255, .03);
+  --empty: rgba(20, 17, 31, .6); --key-hover: #1f1a30; --veil: rgba(14, 12, 22, .84); --worm: #19e08f;
+  --display: "IBM Plex Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+body[data-theme="neon"] .title { color: var(--miss); text-shadow: 0 0 10px var(--miss), 0 0 28px var(--miss); }
+body[data-theme="neon"] .tile.hit, body[data-theme="neon"] .key.hit { box-shadow: 0 0 14px var(--hit); }
+body[data-theme="neon"] .tile.near, body[data-theme="neon"] .key.near { box-shadow: 0 0 14px var(--near); }
+body[data-theme="neon"] .tile.miss, body[data-theme="neon"] .key.miss { box-shadow: 0 0 12px var(--miss); }
+
+/* ---------- animasyonlar ---------- */
+@keyframes bubbleIn { from { opacity: 0; transform: translateX(-4px) scale(.96); } }
+.mascot svg { transform-origin: 50% 90%; }
+/* göz kırpma: yalnızca oyun ekranındaki maskot, ara sıra ve kısa */
+.mascot.live .eyes { transform-box: fill-box; transform-origin: center; animation: blink 6s infinite; }
+@keyframes blink { 0%, 95.5%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.12); } }
+.mascot.m-sad svg { animation: droop .45s var(--ease-out) both; }
+@keyframes droop { to { transform: translateY(3px) rotate(-5deg); } }
+.mascot.m-think svg { animation: tilt .35s var(--ease-out) both; }
+@keyframes tilt { to { transform: rotate(5deg); } }
+.mascot.pop svg { animation: wear .32s var(--ease-out); }
+@keyframes wear { from { transform: scale(.9); } }
+
+/* mürekkep damlaları: kazanılan puan sayaca uçar */
+.fly-drop { position: fixed; left: 0; top: 0; z-index: 45; width: 14px; height: 14px; color: var(--ink); pointer-events: none; }
+.fly-drop svg { display: block; width: 100%; height: 100%; }
+
+/* sonuç penceresi: kazanç satırları sırayla, açılan ödül mühür gibi */
+.gain li { animation: lineIn .28s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 55ms + 180ms); }
+@keyframes lineIn { from { opacity: 0; transform: translateY(4px); } }
+.unlock { border: 2px solid var(--near); transform: rotate(-1.5deg); animation: stamp .32s var(--ease-out) both; animation-delay: var(--d, 600ms); }
+@keyframes stamp { from { opacity: 0; transform: scale(1.22) rotate(-5deg); } }
+.stat b.up { animation: statUp .4s var(--ease-out) .5s both; }
+@keyframes statUp { from { transform: scale(1.35); color: var(--hit); } }
+
+/* ipucu açılınca */
+.hint-text.fresh, .hint-btn.fresh { animation: lineIn .25s var(--ease-out); }
+
+/* dükkân: yeni alınan eşya */
+.item.just { animation: stamp .3s var(--ease-out); }
+
+/* tema ve mod değişimi: sayfa çapraz geçişi (View Transitions) */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .28s; animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot.live .eyes, .mascot svg { animation: none !important; }
+  .gain li, .hint-text.fresh, .hint-btn.fresh { animation: fadeOnly .2s ease both; }
+  .unlock, .item.just, .stat b.up { animation: fadeOnly .2s ease both; }
+  .modal { animation: fadeOnly .2s ease; }
+}
+@keyframes fadeOnly { from { opacity: 0; } }
+</style>
+
+<div class="app">
+  <header class="masthead">
+    <div class="mast-top">
+      <div class="mast-left">
+        <span class="issue" id="issue">Bulmaca No. 1</span>
+        <button class="ink" id="ink" type="button" aria-label="Mürekkep damlası, dükkânı aç" title="Mürekkep damlası"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c3.8 5 6.5 8.6 6.5 11.8a6.5 6.5 0 0 1-13 0c0-3.2 2.7-6.8 6.5-11.8z" fill="currentColor"/></svg><b id="ink-n">0</b></button>
+      </div>
+      <nav class="tools" aria-label="Oyun menüsü">
+        <button class="tool" id="btn-help" type="button">Nasıl?</button>
+        <button class="tool" id="btn-stats" type="button">Skor</button>
+        <button class="tool" id="btn-shop" type="button">Dükkân</button>
+        <button class="tool" id="btn-mp" type="button" hidden>Yarışma</button>
+      </nav>
+    </div>
+    <h1 class="title">Harfiye</h1>
+    <div class="dateline">
+      <span class="date" id="date"></span>
+      <div class="modes" id="modes" role="tablist" aria-label="Oyun modu">
+        <button type="button" role="tab" id="mode-daily" aria-selected="true">Günlük</button>
+        <button type="button" role="tab" id="mode-free" aria-selected="false">Serbest</button>
+        <button type="button" class="newbtn" id="btn-new" hidden>↻ Yeni</button>
+      </div>
+      <span class="sub" id="sub">Kalan <b>6/6</b></span>
+    </div>
+  </header>
+
+  <main>
+    <div class="mpbar" id="mpbar" hidden></div>
+
+    <div class="stage">
+      <div class="board" id="board" aria-label="Oyun tahtası"></div>
+      <div class="hintbar" id="hintbar">
+        <div class="mascot-wrap"><span class="mascot" id="mascot"></span><div class="bubble" id="bubble" hidden></div></div>
+        <div class="hint-slot" id="hint-slot"></div>
+      </div>
+    </div>
+
+    <div class="keyboard" id="keyboard" aria-label="Klavye"></div>
+  </main>
+</div>
+
+<div class="overlay" id="help" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="help-h">
+    <button class="icon-btn close" type="button" data-close aria-label="Kapat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="help-h">NASIL OYNANIR</h2>
+    <p class="lead">Gizli kelimeyi 6 denemede bul.</p>
+    <ol class="rules">
+      <li>Her tahmin, TDK Güncel Türkçe Sözlük'te bulunan 5 harfli bir kelime olmalı. Yazıp <strong>GİR</strong>'e bas.</li>
+      <li>Her tahminden sonra kutuların rengi, harflerin gizli kelimeye ne kadar yakın olduğunu gösterir.</li>
+      <li>Kelimeler bilişimden, bilimden ve günlük hayattan; çoğu temel bilgisayar kavramları.</li>
+      <li><strong>Günlük</strong> modda herkese aynı kelime gelir, günde bir kez. <strong>Serbest</strong> modda istediğin kadar oyna.</li>
+      <li>Bulduğun her kelime <strong>mürekkep</strong> kazandırır. Mürekkeple dükkândan tema ve kitap kurduna kostüm alırsın.</li>
+    </ol>
+    <div class="ex">
+      <div class="mini-row"><div class="tile hit">K</div><div class="tile">A</div><div class="tile">B</div><div class="tile">L</div><div class="tile">O</div></div>
+      <p><strong>K</strong> kelimede var ve doğru yerde.</p>
+    </div>
+    <div class="ex">
+      <div class="mini-row"><div class="tile">D</div><div class="tile">O</div><div class="tile near">S</div><div class="tile">Y</div><div class="tile">A</div></div>
+      <p><strong>S</strong> kelimede var ama başka bir yerde.</p>
+    </div>
+    <div class="ex">
+      <div class="mini-row"><div class="tile">M</div><div class="tile">E</div><div class="tile">T</div><div class="tile miss">İ</div><div class="tile">N</div></div>
+      <p><strong>İ</strong> kelimede hiç yok.</p>
+    </div>
+    <p class="note" id="help-note">Tek kişilik oyunda 4. tahminden sonra <strong>İpucu</strong> açılır. Kelimeyi bulunca kısa bir açıklamasını da görürsün.</p>
+    <div class="actions" style="margin-top:16px"><button class="btn" type="button" data-close>OYNA</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="end" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="end-h">
+    <button class="icon-btn close" type="button" data-close aria-label="Kapat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <span class="mascot big" id="end-mascot"></span>
+    <h2 id="end-h">Skor</h2>
+    <p class="lead" id="end-lead"></p>
+    <div id="end-word">
+      <div class="answer" id="answer"></div>
+      <p class="def" id="def"></p>
+    </div>
+    <div class="gain" id="gain" hidden></div>
+    <div class="stats">
+      <div class="stat"><b id="s-played">0</b><span>Oyun</span></div>
+      <div class="stat"><b id="s-rate">0</b><span>Kazanma %</span></div>
+      <div class="stat"><b id="s-streak">0</b><span>Günlük seri</span></div>
+      <div class="stat"><b id="s-best">0</b><span>En iyi seri</span></div>
+    </div>
+    <h3 class="dist-h">TAHMİN DAĞILIMI</h3>
+    <div class="dist" id="dist"></div>
+    <p class="next-in" id="next-in" hidden></p>
+    <div class="actions">
+      <button class="btn ghost" type="button" id="btn-share">Sonucu kopyala</button>
+      <button class="btn" type="button" id="btn-next">Yeni kelime</button>
+    </div>
+  </div>
+</div>
+
+<!-- dükkân: mürekkeple tema ve kostüm -->
+<div class="overlay" id="shop" hidden>
+  <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="shop-h">
+    <button class="icon-btn close" type="button" data-close aria-label="Kapat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="shop-h">Dükkân</h2>
+    <p class="lead">Bulduğun kelimelerle mürekkep kazan, tema ve kostüm al.</p>
+    <div class="shop-top">
+      <span class="mascot big" id="shop-mascot"></span>
+      <div>
+        <div class="ink-big" id="shop-ink">0</div>
+        <div class="lbl">mürekkep damlası</div>
+        <div class="freeze-row" id="shop-freeze"></div>
+      </div>
+    </div>
+    <h3 class="dist-h">KİLOMETRE TAŞLARI</h3>
+    <ol class="miles" id="miles"></ol>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="shop-tab-theme" aria-selected="true">Temalar</button>
+      <button type="button" role="tab" id="shop-tab-wear" aria-selected="false">Kostümler</button>
+    </div>
+    <div class="items" id="items"></div>
+  </div>
+</div>
+
+<!-- grup yarışması: katıl / yönetici -->
+<div class="overlay" id="mp" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mp-h">
+    <button class="icon-btn close" type="button" data-close aria-label="Kapat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="mp-h">GRUP YARIŞMASI</h2>
+    <p class="lead">Her grup tek telefondan oynar. Tüm gruplara aynı kelime gelir, en hızlı bulan kazanır.</p>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tab-join" aria-selected="true">Gruba katıl</button>
+      <button type="button" role="tab" id="tab-admin" aria-selected="false">Yönetici</button>
+    </div>
+    <form id="mp-form" autocomplete="off">
+      <div class="field" id="name-field">
+        <label for="mp-name">Grup adı</label>
+        <input id="mp-name" maxlength="18" placeholder="Örn: Bit Avcıları">
+      </div>
+      <div class="field">
+        <label for="mp-code" id="code-label">Yarışma kodu</label>
+        <input id="mp-code" maxlength="4" placeholder="K7Q2" autocapitalize="characters">
+      </div>
+      <div class="field" id="pass-field" hidden>
+        <label for="mp-pass">Yönetici şifresi</label>
+        <input id="mp-pass" type="password" autocomplete="off" placeholder="••••••">
+      </div>
+      <p class="wait" id="admin-note" hidden>Kodu boş bırakırsan yeni bir yarışma kurulur. Açık bir yarışmanın sıralama ekranına dönmek için kodunu yaz.</p>
+      <div class="actions"><button class="btn" type="submit" id="mp-go">Katıl</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- grup: tur bekleniyor -->
+<div class="overlay" id="wait" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="wait-h">
+    <h2 id="wait-h">HAZIRSINIZ</h2>
+    <div class="group-big" id="wait-group"></div>
+    <p class="lead" id="wait-lead">Yönetici turu başlatınca oyun kendiliğinden açılır.</p>
+    <div class="actions"><button class="btn ghost" type="button" id="btn-leave">Yarışmadan ayrıl</button></div>
+  </div>
+</div>
+
+<!-- grup: tur sonucu -->
+<div class="overlay" id="gres" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="gres-h">
+    <h2 id="gres-h"></h2>
+    <p class="lead" id="gres-lead"></p>
+    <div class="place" id="gres-place" hidden></div>
+    <div id="gres-word" hidden>
+      <div class="answer" id="gres-answer"></div>
+      <p class="def" id="gres-def"></p>
+    </div>
+    <ul class="plist" id="gres-list"></ul>
+    <p class="wait" id="gres-wait"></p>
+    <div class="actions"><button class="btn ghost" type="button" id="btn-leave2">Yarışmadan ayrıl</button></div>
+  </div>
+</div>
+
+<!-- yönetici: sıralama ekranı -->
+<div class="overlay admin" id="admin" hidden>
+  <div class="admin-in">
+    <div class="ad-bar">
+      <span class="ad-mark">Harfiye</span>
+      <span class="eyebrow">Yönetici masası · Sıralama</span>
+    </div>
+    <div class="ad-head">
+      <div class="ad-box ad-code-box">
+        <span class="eyebrow">Yarışma kodu</span>
+        <div class="code-big" id="ad-code">----</div>
+        <span class="ad-hint">Gruplar üstteki YARIŞMA'ya basıp "Gruba katıl" sekmesine bu kodu yazar.</span>
+      </div>
+      <div class="ad-box ad-ctrl">
+        <div class="ad-round" id="ad-round">Tur başlamadı</div>
+        <div class="ad-clock" id="ad-clock">0:00</div>
+        <div class="ad-word" id="ad-word"></div>
+        <div class="ad-btns">
+          <button class="btn" type="button" id="ad-start">Turu başlat</button>
+          <button class="btn ghost" type="button" id="ad-hint">İpucu gönder</button>
+          <button class="btn ghost" type="button" id="ad-change">Kelimeyi değiştir</button>
+          <button class="btn ghost" type="button" id="ad-end">Turu bitir</button>
+        </div>
+      </div>
+    </div>
+    <div class="tabs ad-tabs" role="tablist">
+      <button type="button" role="tab" id="ad-tab-round" aria-selected="true">Bu tur</button>
+      <button type="button" role="tab" id="ad-tab-all" aria-selected="false">Genel sıralama</button>
+    </div>
+    <div class="ad-table-wrap">
+      <table class="rank" id="ad-table"></table>
+      <p class="ad-empty" id="ad-empty">Henüz grup katılmadı. Kodu gruplara göster.</p>
+    </div>
+    <p class="ad-hint" id="ad-rule"></p>
+    <div class="ad-foot"><button class="btn ghost" type="button" id="ad-close">Yönetici ekranını kapat</button></div>
+  </div>
+</div>
+
+<div class="count" id="count" hidden><span id="count-n">3</span></div>
+<div class="toast out" id="toast" role="status" aria-live="polite"></div>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<script>
+/* =====================================================================
+   ÇOK OYUNCULU İÇİN FIREBASE
+   Kendi Firebase projenin firebaseConfig nesnesini buraya koy.
+   null bırakırsan oyun yalnızca tek kişilik çalışır.
+   ===================================================================== */
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAHCmy6hjKHG3dJKLgux6vwgLV9LD-fhe8",
+    authDomain: "koubk-kelime.firebaseapp.com",
+    projectId: "koubk-kelime",
+    storageBucket: "koubk-kelime.firebasestorage.app",
+    messagingSenderId: "318854967128",
+    appId: "1:318854967128:web:987cf94c44d8c47b0c3f2d"
+  };
+
+/* ---------- kelime haznesi: [kelime, kategori, açıklama] — bil: bilişim, gen: genel ---------- */
+const WORDS = [
+  ["KABLO","bil","Cihazlar arasında elektrik ya da veri taşıyan iletken hat."],
+  ["EKRAN","bil","Bilgisayarın görüntüyü gösterdiği çıkış birimi; monitör."],
+  ["MODEM","bil","Evdeki ağı internet servis sağlayıcısına bağlayan cihaz."],
+  ["DOSYA","bil","Diskte bir adla saklanan veri bütünü: belge, resim, program..."],
+  ["DİZİN","bil","Dosyaları bir arada tutan klasör; İngilizcesi directory."],
+  ["KOMUT","bil","Bilgisayara ne yapacağını söyleyen talimat; terminale yazılır."],
+  ["BULUT","bil","Verilerin ve programların internetteki sunucularda tutulması."],
+  ["ŞİFRE","bil","Hesabını koruyan gizli karakter dizisi. Kimseyle paylaşma!"],
+  ["GİRİŞ","bil","Bilgisayara veri veren birimler: klavye, fare, mikrofon."],
+  ["ÇIKIŞ","bil","Sonucu bize sunan birimler: ekran, hoparlör, yazıcı."],
+  ["AYGIT","bil","Bilgisayara bağlı donanım parçası; cihaz."],
+  ["VİRÜS","bil","Kendini kopyalayarak yayılan, sisteme zarar veren kötü amaçlı yazılım."],
+  ["ROBOT","bil","Sensörler ve yazılımla görevleri kendi başına yapabilen makine."],
+  ["SATIR","bil","Kodda ya da metinde yan yana dizilen tek bir dize."],
+  ["DÖNGÜ","bil","Bir kod bloğunu koşul sağlandıkça tekrar çalıştıran yapı: for, while."],
+  ["DEĞER","bil","Bir değişkenin içinde tuttuğu veri; x = 5 ise değer 5'tir."],
+  ["METİN","bil","Harf ve karakterlerden oluşan veri; programlamada string."],
+  ["BİÇİM","bil","Verinin saklanma şekli: .pdf, .png ve .mp3 birer dosya biçimidir."],
+  ["SÜRÜM","bil","Bir yazılımın belirli bir andaki hali: v1.0, v2.3..."],
+  ["GÖREV","bil","İşletim sisteminin yürüttüğü iş; Görev Yöneticisi'nden izlenir."],
+  ["İŞLEM","bil","Bilgisayarın yaptığı hesap ya da iş; işlemci saniyede milyarlarca işlem yapar."],
+  ["BELGE","bil","Kelime işlemcide hazırlanan yazılı dosya."],
+  ["SAYFA","bil","Bir web sitesinin ya da belgenin tek bir bölümü."],
+  ["ADRES","bil","Bir web sayfasının (URL) ya da bellekteki bir hücrenin konumu."],
+  ["KAYIT","bil","Veritabanındaki tek satırlık bilgi; örneğin bir öğrencinin bilgileri."],
+  ["YEDEK","bil","Verinin kaybolmaya karşı başka bir yerde saklanan kopyası."],
+  ["ARŞİV","bil","Birden çok dosyayı tek pakette toplayan dosya: .zip, .rar."],
+  ["MESAJ","bil","Bir kullanıcıdan diğerine iletilen veri."],
+  ["SİMGE","bil","Bir programı ya da dosyayı temsil eden küçük resim; ikon."],
+  ["SOKET","bil","İki programın ağ üzerinden haberleştiği uç nokta: IP adresi + port."],
+  ["KANAL","bil","Verinin iletildiği yol; Wi-Fi'da her frekans aralığı da bir kanaldır."],
+  ["DİYOT","bil","Akımın yalnızca tek yönde geçmesine izin veren devre elemanı."],
+  ["DEVRE","bil","Elektriğin dolaştığı, elemanlardan oluşan kapalı yol."],
+  ["VİDEO","bil","Arka arkaya gösterilen görüntü karelerinden oluşan medya."],
+  ["MEDYA","bil","Ses, görüntü ve video gibi içeriklerin genel adı."],
+  ["GEÇİT","bil","Farklı ağları birbirine bağlayan geçiş noktası; gateway."],
+  ["İLETİ","bil","E-postayla ya da forumda gönderilen mesaj; post."],
+  ["KOPYA","bil","Bir verinin birebir aynısı; Ctrl + C ile alınır."],
+  ["SEÇİM","bil","Fareyle işaretlenen alan; Ctrl + A her şeyi seçer."],
+  ["ARAMA","bil","Bir veriyi bulma işlemi; Ctrl + F sayfanın içinde arar."],
+  ["BOYUT","bil","Bir dosyanın kapladığı yer: KB, MB, GB..."],
+  ["YIĞIN","bil","Son giren ilk çıkar (LIFO) mantığıyla çalışan veri yapısı; stack."],
+  ["DÜĞÜM","bil","Ağaç, liste ya da ağ yapısındaki her bir eleman; node."],
+  ["LİSTE","bil","Elemanları sıralı tutan veri yapısı."],
+  ["NESNE","bil","Veriyi ve davranışı bir arada tutan yapı; nesne yönelimli programlamanın temeli."],
+  ["SINIF","bil","Nesnelerin şablonu; özellikleri ve metotları tanımlar (class)."],
+  ["METOT","bil","Bir sınıfa ait fonksiyon."],
+  ["SABİT","bil","Program boyunca değeri değişmeyen veri; const."],
+  ["KALIP","bil","Tekrar kullanılabilen hazır çözüm şablonu; tasarım kalıbı (design pattern)."],
+  ["MODEL","bil","Gerçek bir şeyin basitleştirilmiş temsili; yapay zekâ modelleri gibi."],
+  ["SUNUM","bil","Slaytlarla bilgi aktarma; PowerPoint ile hazırlanır."],
+  ["SLAYT","bil","Bir sunumdaki tek sayfa."],
+  ["KÖPRÜ","bil","İki ağ parçasını birbirine bağlayan cihaz; bridge."],
+  ["KİLİT","bil","Cihazı yetkisiz erişime kapatmak. Windows + L ekranı kilitler."],
+  ["FORUM","bil","İnsanların konu başlıkları altında yazıştığı çevrim içi platform."],
+  ["KESME","bil","İşlemciye 'elindeki işi bırak, önce bana bak' diyen sinyal; interrupt."],
+  ["TABLO","bil","Satır ve sütunlardan oluşan veri düzeni; Excel'in ve veritabanlarının temeli."],
+  ["MOTOR","bil","Oyun motoru gibi, başka yazılımlara temel olan hazır altyapı."],
+  ["ANTEN","bil","Radyo dalgalarını alıp veren iletken; modemlerde ve telefonlarda bulunur."],
+  ["BİRİM","bil","Bilgisayarın bir bölümü: giriş birimi, çıkış birimi, merkezî işlem birimi."],
+  ["BUTON","bil","Tıklanınca bir işlem başlatan ekran öğesi."],
+  ["GÜNCE","bil","Günlük; internette blog karşılığı olarak da kullanılır."],
+  ["HÜCRE","bil","Tabloda satırla sütunun kesiştiği kutu; A1 gibi."],
+  ["İMLEÇ","bil","Yazının nereye gireceğini gösteren yanıp sönen işaret; cursor."],
+  ["KABUK","bil","Kullanıcının işletim sistemine komut yazdığı arayüz; shell."],
+  ["KOLON","bil","Tabloda dikey dizi; veritabanında column."],
+  ["KONUM","bil","Bir şeyin bulunduğu yer; telefonun GPS konumu."],
+  ["MAKRO","bil","Tekrarlanan işlemleri tek komutla yapan kayıtlı talimat dizisi."],
+  ["MODÜL","bil","Bir yazılımın ya da cihazın ayrı çalışabilen parçası."],
+  ["OPTİK","bil","Işıkla ilgili; optik fare, fiber optik kablo."],
+  ["ORTAM","bil","Programların çalıştığı yer: geliştirme ortamı, test ortamı."],
+  ["PANEL","bil","Ayarların ve kontrollerin toplandığı ekran bölümü."],
+  ["PARÇA","bil","Bir bütünü oluşturan öğe; ekran kartı bir donanım parçasıdır."],
+  ["SONUÇ","bil","Bir işlemin ya da programın ürettiği değer."],
+  ["SORGU","bil","Veritabanından bilgi istemek için yazılan istek; SQL sorgusu."],
+  ["SÜREÇ","bil","Çalışmakta olan bir program; process. İşletim sistemi süreçleri yönetir."],
+  ["VEKİL","bil","Başkası adına iş gören; vekil sunucu (proxy) istekleri senin yerine iletir."],
+  ["YAPAY","bil","İnsan eliyle yapılmış; yapay zekâ, insan gibi öğrenen yazılımlar."],
+  ["BAKIR","bil","Elektriği iyi ileten kızıl renkli metal; kabloların içinde bulunur."],
+  ["ÇİZGE","bil","Düğümlerden ve onları bağlayan kenarlardan oluşan yapı; graf."],
+  ["DİLİM","bil","Bir bütünün parçası; pasta grafiğinin her dilimi bir oranı gösterir."],
+  ["DOĞRU","bil","Mantıkta true değeri; bir koşul ya doğrudur ya yanlış."],
+  ["DİZGİ","bil","Metnin sayfaya yerleştirilmesi; kitaplar artık bilgisayarda dizilir."],
+  ["ONLUK","bil","0'dan 9'a on rakam kullanan sayı sistemi; bizim günlük sistemimiz."],
+  ["İKİLİ","bil","Yalnızca 0 ve 1 kullanan sayı sistemi; bilgisayarın dili."],
+  ["SAYAÇ","bil","Bir şeyin kaç kez olduğunu sayan değişken ya da cihaz; counter."],
+  ["AYRAÇ","bil","Öğeleri birbirinden ayıran işaret; CSV dosyasındaki virgül gibi."],
+  ["DÜZEN","bil","Öğelerin sayfadaki yerleşimi; sayfa düzeni (layout)."],
+  ["SEKME","bil","Tarayıcıda yan yana açılan sayfaların her biri; tab."],
+  ["SÜTUN","bil","Tablodaki dikey dizi; Excel'de A, B, C sütunları."],
+  ["KAÇIŞ","bil","Esc tuşunun Türkçesi: kaçış tuşu, açık pencereyi kapatır."],
+  ["TEPSİ","bil","Görev çubuğunun sağındaki küçük simgelerin durduğu alan: sistem tepsisi."],
+  ["ÇUBUK","bil","Ekrandaki uzun şerit: görev çubuğu, kaydırma çubuğu."],
+  ["PALET","bil","Tasarımda kullanılan renklerin topluluğu; renk paleti."],
+  ["FIRÇA","bil","Resim programlarında serbest boyama aracı."],
+  ["MAKAS","bil","Kesip ayırma aracı; Kes komutu (Ctrl + X) makasla gösterilir."],
+  ["POSTA","bil","Mektup ve gönderi iletme hizmeti; elektronik hali e-posta."],
+  ["GİZLİ","bil","Başkalarının göremediği; gizli sekme tarama geçmişini kaydetmez."],
+  ["DUVAR","bil","Güvenlik duvarı (firewall): ağı istenmeyen bağlantılardan koruyan yazılım."],
+  ["YETKİ","bil","Bir işlemi yapma hakkı; yönetici yetkisi olmadan program kurulamaz."],
+  ["KURAL","bil","Uyulması gereken ilke; veritabanı kuralları kimin veri yazabileceğini belirler."],
+  ["ÇIKTI","bil","Programın ya da yazıcının ürettiği sonuç; output."],
+  ["GİRDİ","bil","Programa verilen veri; input."],
+  ["ATAMA","bil","Bir değişkene değer verme işlemi: x = 5."],
+  ["KOŞUL","bil","if ile denetlenen durum; koşul doğruysa o kod çalışır."],
+  ["OKUMA","bil","Diskten ya da bellekten veri alma işlemi; diskler okuma hızıyla ölçülür."],
+  ["BÖCEK","bil","Yazılım hatalarına İngilizcede bug, yani böcek denir."],
+  ["ÇEVİK","bil","Hızlı uyum sağlayan; çevik (agile) yazılım geliştirme kısa adımlarla ilerler."],
+  ["DÖNÜŞ","bil","Bir fonksiyonun geri verdiği değer; return."],
+  ["ARIZA","bil","Bir cihazın ya da sistemin bozulup çalışmaması."],
+  ["BAKIM","bil","Sistemin düzenli kontrolü ve güncellenmesi."],
+  ["ÖLÇÜT","bil","Bir şeyi değerlendirmekte kullanılan ölçü; kriter."],
+  ["SAHTE","bil","Gerçek olmayan; sahte e-postalar şifreni çalmaya çalışır."],
+  ["TUZAK","bil","Kandırmak için kurulan düzen; oltalama e-postaları birer tuzaktır."],
+  ["CASUS","bil","Gizlice bilgi toplayan kişi ya da yazılım; casus yazılım (spyware)."],
+  ["YAZIM","bil","Kelimelerin doğru yazılışı; yazım denetimi hataları kırmızıyla çizer."],
+  ["DİZGE","bil","Sistemin Türkçesi: birbirine bağlı parçalardan oluşan bütün."],
+  ["KÜTÜK","bil","Kayıtların tutulduğu defter; bilişimde log dosyası."],
+  ["TABAN","bil","Bir sayı sisteminin temel sayısı; ikilik sistemde taban 2'dir."],
+  ["SIFIR","bil","Hiçliği gösteren rakam; ikilik sistemin iki rakamından biri."],
+  ["SEKİZ","bil","Bir baytı oluşturan bit sayısı."],
+  ["YÜZDE","bil","Yüze göre oran; pil göstergesi %80 gibi."],
+  ["HESAP","bil","Sayılarla yapılan işlem; ayrıca bir sitedeki kullanıcı hesabı."],
+  ["YAYIN","bil","Radyo, televizyon ya da internetten içerik iletme; canlı yayın."],
+  ["SAYIM","bil","Bir şeyin kaç tane olduğunu belirleme işi."],
+  ["UZMAN","bil","Bir alanda derin bilgisi olan kişi; siber güvenlik uzmanı."],
+  ["MUCİT","bil","Daha önce olmayan bir şeyi icat eden kişi."],
+  ["BULUŞ","bil","Yeni bulunan ya da icat edilen şey."],
+  ["AKTİF","bil","Etkin, çalışır durumda; aktif pencere en öndeki penceredir."],
+  ["PASİF","bil","Etkin olmayan; pasif durumdaki buton tıklanamaz."],
+  ["ÇEVRE","bil","Bir şeyin içinde bulunduğu ortam; çevre birimleri bilgisayara takılan aygıtlardır."],
+  ["DÜZEY","bil","Seviye; zorluk düzeyi, ses düzeyi."],
+  ["RADYO","bil","Radyo dalgalarıyla ses yayını yapan ya da alan cihaz."],
+  ["KASET","bil","Ses ve veri kaydeden manyetik şeritli eski kayıt ortamı."],
+  ["ÖLÇÜM","bil","Bir niceliği ölçme işi; sensörler sürekli ölçüm yapar."],
+  ["ÇİZİM","bil","Kalemle ya da bir yazılımla yapılan resim; vektörel çizim."],
+  ["EKSEN","bil","Grafikteki x ve y doğruları; koordinat ekseni."],
+  ["OLASI","bil","Olması mümkün; rastgele sayı üretmek olasılık hesabına dayanır."],
+  ["LAZER","fen","Tek renkli, odaklanmış güçlü ışık demeti."],
+  ["DALGA","fen","Enerjinin titreşimle yayılması; ses ve ışık dalga hâlinde ilerler."],
+  ["BOBİN","fen","Tel sarılarak yapılan, manyetik alan oluşturan devre elemanı."],
+  ["RADAR","fen","Radyo dalgalarıyla uzaktaki cisimlerin yerini bulan sistem."],
+  ["SONAR","fen","Ses dalgalarıyla su altındaki cisimleri bulan sistem."],
+  ["MİKRO","fen","Çok küçük; milyonda bir anlamına gelen ön ek."],
+  ["KÜTLE","fen","Bir cisimdeki madde miktarı; kilogramla ölçülür."],
+  ["KESİR","fen","Bir bütünün parçasını gösteren sayı: 1/2, 3/4."],
+  ["NOKTA","fen","Boyutu olmayan en küçük geometrik öğe."],
+  ["FİZİK","fen","Madde ve enerjiyi inceleyen bilim dalı."],
+  ["KİMYA","fen","Maddelerin yapısını ve birbirine dönüşmesini inceleyen bilim."],
+  ["EVRİM","fen","Canlıların kuşaklar boyunca yavaş yavaş değişmesi."],
+  ["MADEN","fen","Yer altından çıkarılan değerli mineral."],
+  ["SİLİS","fen","Kumun ana maddesi; çiplerdeki silisyum buradan elde edilir."],
+  ["NÖRON","fen","Sinir hücresi; yapay sinir ağlarının da yapı taşı."],
+  ["ENZİM","fen","Vücuttaki kimyasal tepkimeleri hızlandıran protein."],
+  ["GENOM","fen","Bir canlının bütün kalıtsal bilgisi."],
+  ["EVREN","fen","Var olan her şeyin bütünü; gökadalar, yıldızlar, gezegenler."],
+  ["ROKET","fen","Yakıtını yakarak itme gücü üreten, uzaya çıkabilen araç."],
+  ["ÖLÇEK","fen","Haritada ya da çizimde gerçek boyutların küçültülme oranı."],
+  ["HACİM","fen","Bir cismin kapladığı yer; litreyle ya da metreküple ölçülür."],
+  ["METRE","fen","Uzunluk ölçü birimi."],
+  ["LİTRE","fen","Sıvıların hacmini ölçmekte kullanılan birim."],
+  ["AMPER","fen","Elektrik akımının ölçü birimi."],
+  ["HERTZ","fen","Saniyedeki titreşim sayısı birimi; işlemci hızı gigahertzle ölçülür."],
+  ["BÖLEN","fen","Bir sayıyı kalansız bölen sayı; 12'nin bölenleri 1, 2, 3, 4, 6, 12."],
+  ["TEORİ","fen","Olguları açıklamak için kurulan bilimsel düşünce sistemi; kuram."],
+  ["KANIT","fen","Bir şeyin doğruluğunu gösteren delil."],
+  ["KEŞİF","fen","Var olan ama bilinmeyen bir şeyi bulma."],
+  ["DENEY","fen","Bir fikri sınamak için yapılan kontrollü çalışma."],
+  ["BİLİM","fen","Gözlem ve deneyle gerçeği araştırma yolu."],
+  ["DEMİR","fen","Sert ve dayanıklı, mıknatısa yapışan metal."],
+  ["ÇELİK","fen","Demirle karbonun karışımından elde edilen sağlam alaşım."],
+  ["ALTIN","fen","Sarı renkli, paslanmayan değerli metal; devrelerde de kullanılır."],
+  ["GÜMÜŞ","fen","Elektriği en iyi ileten parlak beyaz metal."],
+  ["KÖMÜR","fen","Yakıt olarak kullanılan, karbondan oluşan siyah madde."],
+  ["DAİRE","fen","Merkezden eşit uzaklıktaki noktaların sınırladığı düzlem parçası."],
+  ["ÜÇGEN","fen","Üç kenarı ve üç açısı olan geometrik şekil."],
+  ["BEYİN","fen","Düşünmemizi sağlayan organ; yapay sinir ağlarına da ilham verdi."],
+  ["RAKAM","fen","Sayıları yazmaya yarayan işaretler: 0'dan 9'a."],
+  ["KULÜP","gen","Ortak ilgi alanı olan insanların bir araya geldiği topluluk."],
+  ["PROJE","gen","Belli bir hedef için planlanan çalışma."],
+  ["TAKIM","gen","Aynı amaç için birlikte çalışan grup."],
+  ["FİKİR","gen","Akla gelen düşünce; her projenin başlangıç noktası."],
+  ["BİLGİ","gen","Öğrenilen, bilinen şey; 'bilgisayar' kelimesinin de kökü."],
+  ["KAHVE","gen","Kavrulmuş çekirdeklerden yapılan, uyandıran içecek."],
+  ["SİMİT","gen","Susamlı, halka biçiminde fırın ürünü."],
+  ["HAFTA","gen","Yedi günlük zaman dilimi."],
+  ["STANT","gen","Fuarlarda ve etkinliklerde tanıtım için kurulan alan."],
+  ["ZAMAN","gen","Olayların sırasını ölçtüğümüz boyut."],
+  ["ÇÖZÜM","gen","Bir soruna bulunan cevap."],
+  ["SORUN","gen","Çözülmesi gereken durum; yazılımda buna bug da deriz."],
+  ["CEVAP","gen","Bir soruya verilen karşılık."],
+  ["ÖRNEK","gen","Bir şeyi açıklamak için gösterilen benzer durum."],
+  ["SINAV","gen","Öğrenilenin ölçüldüğü değerlendirme."],
+  ["KALEM","gen","Yazı yazmaya yarayan araç."],
+  ["KİTAP","gen","Ciltlenmiş sayfalardan oluşan yazılı eser."],
+  ["DÜNYA","gen","Üzerinde yaşadığımız gezegen."],
+  ["DENİZ","gen","Karaların arasını dolduran büyük tuzlu su kütlesi."],
+  ["ŞEHİR","gen","Kalabalık ve büyük yerleşim yeri."],
+  ["GÜNEŞ","gen","Dünya'ya ışık ve ısı veren yıldız."],
+  ["BAHAR","gen","Kışla yaz arasındaki mevsim."],
+  ["ÇİÇEK","gen","Bitkilerin renkli, kokulu kısmı."],
+  ["LİMON","gen","Ekşi, sarı bir narenciye meyvesi."],
+  ["KİRAZ","gen","Kırmızı, çekirdekli bir yaz meyvesi."],
+  ["BEYAZ","gen","Işığın bütün renkleri birleşince oluşan renk."],
+  ["SİYAH","gen","Işığı hiç yansıtmayan, en koyu renk."],
+  ["YEŞİL","gen","Çimenin ve yaprakların rengi."],
+  ["PEMBE","gen","Kırmızıyla beyazın karışımından oluşan açık renk."],
+  ["HEDEF","gen","Ulaşılmak istenen sonuç."],
+  ["ZAFER","gen","Bir mücadeleden kazanarak çıkmak."],
+  ["MÜZİK","gen","Seslerin uyumla düzenlenmesi."],
+  ["RESİM","gen","Çizgi ve renklerle yapılan görsel eser."],
+  ["ALARM","gen","Uyarı veren sesli sinyal."],
+  ["ARMUT","gen","Sulu ve tatlı, alt kısmı geniş bir meyve."],
+  ["ELMAS","gen","Bilinen en sert doğal madde; değerli bir taş."],
+  ["ÇİLEK","gen","Kırmızı, küçük taneli, kokulu bir meyve."],
+  ["KAVUN","gen","Yazın yenen, içi sarı ve tatlı meyve."],
+  ["EKMEK","gen","Undan yapılan, sofraların temel yiyeceği."],
+  ["BÖREK","gen","Yufka arasına iç konarak yapılan hamur işi."],
+  ["PİLAV","gen","Pirinç ya da bulgurla yapılan yemek."],
+  ["ÇORBA","gen","Sıcak içilen sulu yemek."],
+  ["TATLI","gen","Şekerli yiyecek; yemeğin ardından yenir."],
+  ["LOKUM","gen","Nişasta ve şekerle yapılan yumuşak tatlı."],
+  ["ŞEKER","gen","Tatlandırmakta kullanılan beyaz kristal madde."],
+  ["BİBER","gen","Acısı ve tatlısı olan, yeşil ya da kırmızı sebze."],
+  ["SOĞAN","gen","Kesince göz yaşartan, yemeklere tat veren sebze."],
+  ["HAVUÇ","gen","Turuncu renkli, kökü yenen sebze."],
+  ["TABAK","gen","Yemek konan yayvan kap."],
+  ["KAŞIK","gen","Çorba ve sulu yemekleri yemeye yarayan araç."],
+  ["ÇATAL","gen","Yemeği batırıp almaya yarayan dişli araç."],
+  ["BIÇAK","gen","Kesmeye yarayan keskin ağızlı araç."],
+  ["DOLAP","gen","Eşyaların konduğu kapaklı mobilya."],
+  ["KAPAK","gen","Bir şeyin ağzını kapatan parça."],
+  ["YATAK","gen","Üzerinde uyunan yumuşak döşek."],
+  ["PERDE","gen","Pencereye asılan kumaş örtü."],
+  ["ÇANTA","gen","Eşya taşımaya yarayan, saplı ya da askılı kap."],
+  ["KAZAK","gen","Yünden örülen, kışın giyilen üst giysi."],
+  ["CEKET","gen","Gömleğin üstüne giyilen, önü açık giysi."],
+  ["ÇORAP","gen","Ayağa giyilen örme giysi."],
+  ["ŞAPKA","gen","Başa giyilen giysi."],
+  ["KEMER","gen","Bele takılan kayış."],
+  ["KOLYE","gen","Boyna takılan süs eşyası."],
+  ["YÜZÜK","gen","Parmağa takılan halka biçiminde süs."],
+  ["BAHÇE","gen","Çiçek, ağaç ya da sebze yetiştirilen alan."],
+  ["ORMAN","gen","Ağaçlarla kaplı geniş alan."],
+  ["NEHİR","gen","Denize ya da göle dökülen büyük akarsu."],
+  ["SABAH","gen","Günün güneş doğduktan sonraki ilk bölümü."],
+  ["AKŞAM","gen","Günün güneş batarken başlayan bölümü."],
+  ["YARIN","gen","Bugünden sonraki gün."],
+  ["BUGÜN","gen","İçinde bulunduğumuz gün."],
+  ["ASLAN","gen","Yelesiyle tanınan, ormanların kralı denen büyük kedi."],
+  ["KÖPEK","gen","İnsanın en sadık dostu sayılan evcil hayvan."],
+  ["ÖRDEK","gen","Suda yüzen, yassı gagalı kuş."],
+  ["BALIK","gen","Suda yaşayan, solungaçla nefes alan hayvan."],
+  ["YUNUS","gen","Zekâsıyla bilinen, denizde yaşayan memeli."],
+  ["SERÇE","gen","Şehirlerde sık görülen küçük, kahverengi kuş."],
+  ["HOROZ","gen","Sabahları öten erkek tavuk."],
+  ["TİLKİ","gen","Kurnazlığıyla bilinen, kızıl tüylü hayvan."],
+  ["ZEBRA","gen","Siyah beyaz çizgili, ata benzeyen hayvan."],
+  ["PANDA","gen","Bambu yiyen, siyah beyaz ayı."],
+  ["FİDAN","gen","Yeni dikilmiş genç ağaç."],
+  ["ÇINAR","gen","Uzun ömürlü, geniş yapraklı büyük ağaç."],
+  ["KAVAK","gen","Uzun ve ince gövdeli, hızlı büyüyen ağaç."],
+  ["SÖĞÜT","gen","Dalları suya doğru sarkan ağaç."],
+  ["TOHUM","gen","Toprağa ekilince yeni bitki veren tane."],
+  ["MEYVE","gen","Ağaçların ve bitkilerin yenebilen ürünü."],
+  ["SEBZE","gen","Yemeği yapılan bitki: ıspanak, patlıcan, fasulye."],
+  ["SOKAK","gen","Şehirde iki yanı evli yol."],
+  ["CADDE","gen","Şehirde geniş ve işlek yol."],
+  ["LİMAN","gen","Gemilerin yanaştığı korunaklı kıyı."],
+  ["TÜNEL","gen","Dağın ya da toprağın altından geçen yol."],
+  ["SARAY","gen","Hükümdarların yaşadığı büyük ve görkemli yapı."],
+  ["ROMAN","gen","Uzun, kurgusal düzyazı eseri."],
+  ["MASAL","gen","Olağanüstü olayların anlatıldığı kısa hikâye."],
+  ["YAZAR","gen","Kitap, makale ya da öykü yazan kişi."],
+  ["ŞARKI","gen","Sözlü müzik parçası."],
+  ["GİTAR","gen","Telli, parmakla ya da penayla çalınan çalgı."],
+  ["DAVUL","gen","Tokmakla vurularak çalınan büyük vurmalı çalgı."],
+  ["KEMAN","gen","Yayla çalınan, dört telli çalgı."],
+  ["SAHNE","gen","Gösterilerin yapıldığı yüksek yer."],
+  ["TENİS","gen","Raketle ve fileyle oynanan top oyunu."],
+  ["HAKEM","gen","Bir yarışmada kurallara uyulmasını sağlayan kişi."],
+  ["GALİP","gen","Kazanan, üstün gelen."],
+  ["REKOR","gen","Bir alanda bugüne dek ulaşılmış en iyi derece."],
+  ["HAYAL","gen","Zihinde canlandırılan düşünce."],
+  ["MERAK","gen","Bir şeyi öğrenme isteği; her keşfin başlangıcı."],
+  ["SEVGİ","gen","Bir şeye ya da birine karşı duyulan bağlılık."],
+  ["SAYGI","gen","Başkalarının değerini kabul eden tutum."],
+  ["HUZUR","gen","Kaygıdan uzak, rahat olma durumu."],
+  ["KULAK","gen","İşitme organı."],
+  ["KOMŞU","gen","Yakınımızda oturan kişi."],
+  ["VAPUR","gen","Yolcu taşıyan buharlı ya da motorlu gemi."],
+  ["TEKNE","gen","Küçük deniz taşıtı."],
+  ["YOLCU","gen","Bir yere giden ya da taşıtla yolculuk eden kişi."],
+  ["BİLET","gen","Taşıta, gösteriye girmek için alınan belge."],
+  ["VALİZ","gen","Yolculukta eşya taşınan bavul."],
+  ["TATİL","gen","Çalışmaya ara verilen dinlenme dönemi."],
+  ["ÇADIR","gen","Kampta kurulan, kumaştan taşınabilir barınak."],
+  ["TAHTA","gen","Ağaçtan kesilmiş yassı parça; okuldaki yazı tahtası."],
+  ["KUMAŞ","gen","Giysi yapılan dokuma."],
+  ["İPLİK","gen","Dikiş ve dokumada kullanılan ince bükülmüş lif."],
+  ["DÜĞME","gen","Giysiyi iliklemeye yarayan küçük parça."],
+  ["CÜMLE","gen","Bir yargı bildiren kelimeler topluluğu."],
+  ["DİLEK","gen","Gerçekleşmesi istenen şey."],
+  ["DÜĞÜN","gen","Evlenme töreni ve eğlencesi."],
+  ["PASTA","gen","Kremalı, katlı, kutlamalarda kesilen tatlı."],
+  ["BALON","gen","Hava ya da gazla şişirilen, uçabilen top."],
+  ["DAVET","gen","Birini bir yere çağırma."],
+  ["KOLAY","gen","Yapılması güç olmayan."],
+  ["HIZLI","gen","Çabuk hareket eden."],
+  ["YAVAŞ","gen","Ağır hareket eden."],
+  ["BÜYÜK","gen","Boyutu, hacmi geniş olan."],
+  ["KÜÇÜK","gen","Boyutu, hacmi az olan."],
+  ["GÜÇLÜ","gen","Kuvveti çok olan."]
+];
+/* Geçerli tahminler: TDK Güncel Türkçe Sözlük'teki 5 harfli, tek sözcüklü maddeler (özel adlar hariç; â/î/û düz harfe çevrildi) */
+const TDK5 = "ABACI ABADİ ABALI ABANİ ABARA ABAŞO ABDAL ABECE ABECİ ABİDE ABİYE ABLAK ABONE ABOSA ABRAŞ ABULİ ACABA ACELE ACEMİ ACEZE ACICA ACILI ACIMA ACİBE ACUBE ACUZE AÇGÖZ AÇLIK AÇMAK AÇMAZ ADALE ADALI ADALİ ADAMA ADEDİ ADESE ADETA ADINA ADRES ADSAL ADSIZ AFAKİ AFAZİ AFİFE AFİLİ AFİŞE AFONİ AFSUN AFTOS AFYON AGAMİ AGORA AGRAF AĞCIK AĞILI AĞLAK AĞMAK AĞNAM AĞRAZ AĞYAR AHALİ AHBAP AHCAR AHENK AHFAT AHİZE AHKAM AHLAF AHLAK AHLAT AHMAK AHRAZ AHRET AHŞAP AHUNT AHVAL AİDAT AJANS AJİTE AKABE AKAİT AKAJU AKALA AKBAŞ AKÇIL AKDUT AKEMİ AKICI AKİDE AKİKA AKİLE AKKOR AKKUŞ AKLAN AKLEN AKLIK AKMAK AKMAN AKMAZ AKONT AKORT AKPAS AKRAN AKREP AKSAK AKSAM AKSAN AKSON AKŞAM AKŞIN AKTAR AKTAŞ AKTİF AKTÖR AKVAM ALACA ALAİM ALAKA ALARM ALAZA ALBAY ALBÜM ALÇAK ALENİ ALEYH ALGIÇ ALGIN ALICI ALİZE ALKAN ALKIM ALKIŞ ALKİL ALKOL ALLEM ALLIK ALMAÇ ALMAK ALMAŞ ALNAÇ ALSAT ALTAR ALTES ALTIK ALTIN ALTIZ ALTLI ALYAN ALYON AMADE AMALI AMBAR AMBER AMELE AMELİ AMİGO AMORF AMPER AMPİR AMPUL AMUDİ ANACA ANALI ANANE ANCAK ANDAÇ ANDIÇ ANDIK ANDIZ ANELE ANEMİ ANGIÇ ANGIN ANGUT ANİDE ANİME ANJİN ANKET ANLAK ANLAM ANLIK ANMAK ANONS ANSIZ ANTEN ANTET ANTİK ANTLI ANTRE ANÜRİ ANYON APACI APİKO APLİK APORT APOŞİ APOTR APRİL APSİS APTAL ARABA ARACI ARAKA ARALI ARAMA ARAZİ ARDAK ARDIÇ ARDIL AREFE ARENA ARGAÇ ARGIN ARGIT ARGON ARICI ARIZA ARIZİ ARİFE ARİYA ARİZA ARKAÇ ARKIT ARKOZ ARMUT ARMUZ AROMA ARPÇI ARPEJ ARSIZ ARŞIN ARŞİV ARTÇI ARTER ARTIK ARTIM ARTIN ARTIŞ ARTMA ASABİ ASHAP ASILI ASİDE ASİST ASKAT ASKER ASKLI ASLAN ASLEN ASLIK ASMAK ASPUR ASTAR ASTAT ASTIM ASTİK ASUDE ASYÖN AŞAĞI AŞAMA AŞARİ AŞEVİ AŞICI AŞILI AŞIRI AŞİNA AŞKIN AŞLIK AŞMAK AŞURE ATAMA ATARİ ATAŞE ATFEN ATICI ATILI ATLAS ATLET ATMAK ATMIK AVANE AVANS AVARA AVARE AVAZE AVDET AVİZE AVLAK AVRAT AVRET AVUNÇ AVURT AYDIN AYEVİ AYGIN AYGIR AYGIT AYICI AYIRT AYLAK AYLIK AYMAK AYMAZ AYNAZ AYNEN AYRAÇ AYRAN AYRIÇ AYRIK AYRIM AYRIT AYSAR AYSIZ AYVAN AYVAZ AYYAR AYYAŞ AYYUK AZADE AZAMİ AZGIN AZILI AZİZE AZLIK AZMAK AZMAN AZNİF AZOİK AZVAY BABAÇ BABET BABUN BACAK BAÇÇI BAÇLI BADAL BADAS BADAT BADEM BADIÇ BADİK BADYA BAGAJ BAGET BAĞAN BAĞCI BAĞDA BAĞIL BAĞIM BAĞIN BAĞIR BAĞIŞ BAĞIT BAĞLI BAHAR BAHÇE BAHİR BAHİS BAHRİ BAKAÇ BAKAM BAKAN BAKIM BAKIR BAKIŞ BAKİR BAKLA BAKMA BAKŞI BALAR BALAT BALCI BALDO BALEN BALET BALIK BALİĞ BALKI BALLI BALON BALOZ BALTA BALYA BAMBU BAMYA BANAK BANAL BANDO BANJO BANKA BANKO BANMA BANYO BARAJ BARAK BARAN BARAS BARBA BARCI BARÇA BARDA BARDO BAREM BARET BARIŞ BARİT BARİZ BARKA BARLI BAROK BARON BARUT BASAK BASAR BASEN BASIK BASIM BASIN BASIŞ BASİL BASİT BASKI BASMA BASSO BASTI BASUR BASYA BAŞAK BAŞAT BAŞÇI BAŞKA BAŞLI BAŞTA BATAK BATAR BATIK BATIL BATIN BATIŞ BATİK BATKI BATMA BATON BATUR BAVCI BAVLI BAVUL BAYAN BAYAT BAYIR BAYMA BAYRI BAZAL BAZEN BAZİK BAZİT BAZLI BEBEK BECET BECİT BEDEL BEDEN BEDİİ BEDİK BEDİR BEGÜM BEHER BEHEY BEHRE BEKAR BEKAS BEKÇİ BEKRİ BELCE BELDE BELEK BELEN BELEŞ BELGE BELGİ BELİĞ BELİK BELİT BELKİ BELLİ BEMOL BENCE BENCİ BENDE BENEK BENGİ BENİZ BENLİ BERAT BERİL BERRİ BESİN BESTE BEŞER BEŞİK BEŞİZ BEŞLİ BEŞME BEŞON BEŞUŞ BETER BETİK BETİM BETON BEYAN BEYAZ BEYİN BEYİT BEYZİ BEZCİ BEZEK BEZEN BEZGİ BEZİK BEZİR BEZİŞ BEZME BEZSİ BICIL BIÇAK BIÇIK BIÇKI BIDIK BIKIŞ BIKMA BIYIK BIZIR BİBER BİBLO BİCİK BİÇEM BİÇİM BİÇİŞ BİÇKİ BİÇME BİDAR BİDAT BİDON BİHUŞ BİJON BİKES BİKİR BİLAR BİLEK BİLET BİLGE BİLGİ BİLİM BİLİR BİLİŞ BİLME BİLYE BİNDİ BİNEK BİNER BİNGİ BİNİŞ BİNİT BİNLİ BİNME BİRAZ BİRCİ BİRER BİREY BİRİM BİRLİ BİRUN BİŞEK BİTAP BİTEK BİTEY BİTİK BİTİM BİTİŞ BİTKİ BİTLİ BİTME BİTÜM BİYEL BİZAR BİZCE BİZON BLOKE BOBİN BOCCE BOCUK BODUÇ BODUR BOĞAK BOĞAZ BOĞMA BOĞUK BOĞUM BOHÇA BOHEM BOKLU BOLCA BOMBA BOMBE BORAK BORAN BORAT BORDA BORDO BORİK BORSA BORUK BOYAR BOYCA BOYLU BOYNA BOYOZ BOYUN BOYUT BOZCA BOZMA BOZUK BOZUM BOZUŞ BÖBÜR BÖCEK BÖĞÜR BÖLEN BÖLGE BÖLME BÖLÜK BÖLÜM BÖLÜŞ BÖLÜT BÖNCE BÖREK BÖYLE BRANŞ BRAVO BRONŞ BRONZ BRÖVE BUCAK BUÇUK BUDAK BUDUN BUGÜN BUĞRA BUĞUR BUĞUZ BUHAR BUHUR BUKET BUKLE BULAK BULAŞ BULGU BULMA BULUŞ BULUT BUNAK BUNCA BUNLU BUNMA BURCU BURGU BURMA BURUK BURUN BUŞON BUTİK BUTLU BUTON BUYMA BUYOT BUZCU BUZLA BUZLU BUZUL BÜCÜR BÜĞET BÜĞLÜ BÜKEN BÜKME BÜKÜÇ BÜKÜK BÜKÜM BÜKÜŞ BÜLUĞ BÜNYE BÜRGÜ BÜRÜK BÜRÜN BÜTAN BÜTÇE BÜTEN BÜTEY BÜTÜN BÜVET BÜYÜK BÜZGÜ BÜZME BÜZÜK CACIK CADDE CAHİL CAİZE CALİP CAMCI CAMIZ CAMİA CAMİT CAMLI CAMSI CANAN CANİP CANLI CARLI CARTA CASUS CAYIŞ CAYMA CAZCI CAZİP CAZLI CEBEL CEBİN CEBİR CEBRİ CEDEL CEDİT CEDRE CEHİL CEHRE CEHRİ CEKET CELAL CELBE CELEP CELİL CELSE CEMAL CEMAN CEMİL CEMRE CEMSE CENAH CENAP CENİN CENUP CEPÇİ CEPHE CEREN CESET CESİM CESUR CEVAP CEVAZ CEVİR CEVİZ CEVVİ CEZAİ CEZBE CEZİR CEZRİ CEZVE CIBIL CICIK CILGA CILIZ CIVIK CIVMA CIZIK CİBİN CİBRE CİCİK CİCİM CİCOZ CİDAL CİDAR CİDDİ CİĞER CİHAN CİHAR CİHAT CİHAZ CİHET CİLVE CİMRİ CİNAİ CİNAS CİNCİ CİNLİ CİNSİ CİRİM CİRİT CİSİM CİVAN CİVAR CİZYE CONTA CORUM COŞKU COŞMA COŞUM COŞUŞ COZUR CUDAM CUKKA CUMBA CUNDA CUNTA CUŞİŞ CÜBBE CÜCÜK CÜLUS CÜMLE CÜNHA CÜNUN CÜNÜP CÜRET CÜRUF CÜRÜM CÜSSE ÇABUK ÇADIR ÇAĞLA ÇAĞMA ÇAĞRI ÇAKAL ÇAKAR ÇAKER ÇAKIL ÇAKIM ÇAKIN ÇAKIR ÇAKIŞ ÇAKMA ÇAKRA ÇALAK ÇALAR ÇALGI ÇALIK ÇALIM ÇALIŞ ÇALKI ÇALMA ÇALTI ÇAMAT ÇAMÇA ÇAMUR ÇANAK ÇANCI ÇANDI ÇANLI ÇANTA ÇAPAK ÇAPAR ÇAPLA ÇAPLI ÇAPMA ÇAPUL ÇAPUT ÇARHA ÇARIK ÇARKA ÇARPI ÇARŞI ÇASAR ÇAŞIT ÇATAK ÇATAL ÇATIK ÇATIŞ ÇATKI ÇATMA ÇAVLI ÇAVMA ÇAVUN ÇAVUŞ ÇAYAN ÇAYCI ÇAYIR ÇAYLI ÇEBİÇ ÇECİK ÇEDİK ÇEHRE ÇEKEK ÇEKEL ÇEKEM ÇEKER ÇEKİÇ ÇEKİK ÇEKİM ÇEKİŞ ÇEKME ÇEKÜL ÇELEK ÇELEN ÇELGİ ÇELİK ÇELİM ÇELLO ÇELME ÇEMÇE ÇEMEN ÇEMİÇ ÇEMİŞ ÇENEK ÇENET ÇENGİ ÇEPEL ÇEPER ÇEPEZ ÇEPİN ÇERAĞ ÇERÇİ ÇEREZ ÇERGE ÇEŞİT ÇEŞME ÇEŞNİ ÇETEN ÇETİN ÇEVİK ÇEVRE ÇEVRİ ÇEYİZ ÇIBAN ÇIDAM ÇIFIT ÇIĞIR ÇIKAK ÇIKAN ÇIKAR ÇIKIK ÇIKIM ÇIKIN ÇIKIŞ ÇIKIT ÇIKMA ÇIKRA ÇIKTI ÇINAR ÇINGI ÇIRAĞ ÇIRAK ÇIRPI ÇITAK ÇIVMA ÇIYAN ÇİÇEK ÇİFTE ÇİĞDE ÇİĞİN ÇİĞİT ÇİLEK ÇİLLİ ÇİMEK ÇİMEN ÇİMME ÇİNKO ÇİPİL ÇİPLİ ÇİRİŞ ÇİROZ ÇİSEN ÇİTEN ÇİTİL ÇİTME ÇİVİT ÇİZER ÇİZGE ÇİZGİ ÇİZİK ÇİZİM ÇİZİŞ ÇİZME ÇOBAN ÇOCUK ÇOĞUL ÇOĞUN ÇOKAL ÇOKÇA ÇOKÇU ÇOKLU ÇOLAK ÇOLPA ÇOMAK ÇOMAR ÇOPRA ÇOPUR ÇORAK ÇORAP ÇORBA ÇORLU ÇOTRA ÇOTUK ÇÖĞME ÇÖĞÜR ÇÖKEK ÇÖKEL ÇÖKME ÇÖKÜK ÇÖKÜM ÇÖKÜŞ ÇÖMÇE ÇÖMEZ ÇÖMME ÇÖPÇÜ ÇÖPLÜ ÇÖREK ÇÖRKÜ ÇÖRTÜ ÇÖVEN ÇÖZGÜ ÇÖZME ÇÖZÜK ÇÖZÜM ÇÖZÜŞ ÇUBUK ÇUKUR ÇULCU ÇULHA ÇUPRA ÇUŞKA ÇUVAL ÇÜKÜR ÇÜNKÜ ÇÜRÜK DADAŞ DAĞAR DAĞCI DAĞLI DAHİL DAİMA DAİMİ DAİRE DAKİK DALAK DALAN DALAŞ DALGA DALGI DALIŞ DALIZ DALLI DALMA DALSI DALYA DAMAK DAMAR DAMAT DAMGA DAMLA DAMLI DANIŞ DARAÇ DARAL DARAŞ DARBE DARCA DASİT DATİF DAVAR DAVET DAVUL DAVYA DAYAK DEBBE DEBİL DEFİN DEFNE DEGAJ DEĞEÇ DEĞER DEĞİL DEĞİM DEĞİN DEĞİŞ DEĞME DEİST DEİZM DEKAN DEKAR DEKOR DELGİ DELİK DELİL DELME DELTA DEMCİ DEMEÇ DEMEK DEMET DEMİN DEMİR DEMLİ DENEK DENET DENEY DENGE DENİM DENİZ DENLİ DENME DENYO DEPAR DERBİ DERGİ DERİN DERME DERUN DERYA DESEN DESTE DEŞİK DEŞME DETAY DEVAM DEVCE DEVİM DEVİR DEVRE DEVRİ DEYİM DEYİŞ DIĞAN DILAK DIŞIK DIŞKI DİBEK DİDAR DİDON DİĞER DİKÇE DİKEÇ DİKEL DİKEN DİKEY DİKİM DİKİŞ DİKİT DİKİZ DİKME DİKSE DİKTA DİKTE DİLCE DİLCİ DİLEK DİLİM DİLİŞ DİLLİ DİLME DİLSİ DİMAĞ DİNAR DİNCE DİNCİ DİNEK DİNEN DİNGİ DİNİŞ DİNLİ DİNME DİPLİ DİREK DİREN DİREY DİRİĞ DİRİL DİRİM DİSKO DİŞÇİ DİŞİL DİŞLİ DİTME DİVAL DİVAN DİVİK DİVİT DİYAR DİYET DİYEZ DİYOT DİZEK DİZEL DİZEM DİZEY DİZGE DİZGİ DİZİM DİZİN DİZİŞ DİZME DOBRA DOGMA DOĞAÇ DOĞAL DOĞAN DOĞMA DOĞRU DOĞUM DOĞUŞ DOKUZ DOLAK DOLAM DOLAP DOLAR DOLAY DOLGU DOLMA DOLUM DOLUŞ DOMUR DOMUZ DONAM DONLU DONMA DONÖR DONRA DONUK DONUT DORSE DORUK DORUM DOSYA DOYGU DOYMA DOYUM DOYUŞ DOZAJ DOZER DÖKME DÖKÜK DÖKÜM DÖKÜŞ DÖLEK DÖLÜT DÖNEÇ DÖNEK DÖNEL DÖNEM DÖNER DÖNGÜ DÖNME DÖNÜK DÖNÜM DÖNÜŞ DÖNÜT DÖPER DÖŞEK DÖŞEM DÖŞLÜ DÖVEÇ DÖVİZ DÖVME DÖVÜŞ DRAJE DRAMA DRİFT DUACI DUALI DUBAR DUBLE DUDAK DUHUL DULDA DULUK DUMAN DUMUR DURAÇ DURAK DURAL DURGU DURMA DURUK DURUM DURUŞ DUŞAK DUŞLU DUTÇU DUVAK DUVAR DUYAR DUYGU DUYMA DUYUM DUYUŞ DÜBEL DÜBEŞ DÜÇAR DÜDEN DÜDÜK DÜGAH DÜĞME DÜĞÜM DÜĞÜN DÜLEK DÜMEN DÜNİT DÜNKÜ DÜNÜR DÜNYA DÜRME DÜRTÜ DÜRÜM DÜRZÜ DÜŞÇÜ DÜŞES DÜŞEŞ DÜŞEY DÜŞKÜ DÜŞME DÜŞÜK DÜŞÜN DÜŞÜŞ DÜŞÜT DÜVEL DÜVEN DÜVER DÜYEK DÜYUN DÜZCE DÜZEÇ DÜZEM DÜZEN DÜZEY DÜZGÜ DÜZME EBCET EBEDİ EBELİ EBLEH ECDAT EÇHEL EDALI EDEBİ EDİBE EDİNÇ EDVAR EFDAL EFECE EFEKT EFKAR EFLAK EFRAT EFRİZ EFSUN EFSUS EGALE EGLOG EGZOZ EĞLEK EĞMEÇ EĞMEK EĞREZ EĞRİM EHRAM EHVEN EJDER EKİCİ EKİLİ EKLEM EKLER EKMEK EKOLU EKOSE EKRAN EKSEN EKSER EKSİK EKSİN EKSİZ EKÜRİ ELBET ELCİK ELÇEK ELÇİM ELDEN ELEJİ ELEME ELGİN ELHAK ELİFİ ELİPS ELLİK ELMAS ELMEK ELVAN ELYAF ELZEM EMARE EMAYE EMCEK EMCİK EMİCİ EMLAK EMLİK EMMEÇ EMMEK EMOJİ EMRAZ EMSAL EMTİA EMVAL EMZİK ENAYİ ENCAM ENDAM ENDER ENEME ENEZE ENFES ENGEL ENGİN ENKAZ ENLEM ENÖTE ENSAR ENSİZ ENTEL ENZİM EOSEN EPEYİ EPOPE EPSEM ERBAP ERBAŞ ERBİN ERCİK ERDEM ERDEN ERGEN ERGİN ERİKA ERİME ERİNÇ ERKAN ERKEÇ ERKEK ERKEN ERKİN ERKLİ ERLİK ERMEK ERMİN ERMİŞ EROİN ERSİZ ERVAH ERZAK ERZEL ESAME ESAMİ ESANS ESASİ ESBAK ESBAP ESEME ESHAM ESİRE ESKİZ ESLAF ESLEK ESMEK ESMER ESNAF ESNEK ESPAS ESPRİ ESRAR ESRİK ESSAH ESTER ESTET ESVAP EŞARP EŞHAS EŞKAL EŞKİN EŞLEK EŞLEM EŞLİK EŞMEK EŞRAF EŞREF EŞSİZ ETÇİK ETÇİL ETENE ETFAL ETKEN ETKİN ETLİK ETMEK ETMEN ETNİK ETRAF ETSEL ETSİZ EVAZE EVCEK EVCİK EVCİL EVDEŞ EVGİN EVHAM EVİYE EVKAF EVLAT EVLEK EVLİK EVRAK EVRAT EVREN EVRİK EVRİM EVSAF EVSİN EVSİZ EVVEL EYLEM EYLÜL EYTAM EYVAH EYVAN EYYAM EZANİ EZBER EZELİ EZGİÇ EZGİN EZİCİ EZİNÇ EZMEK FACİA FAGOT FAHİŞ FAHRİ FAHTE FAHUR FAKAT FAKİH FAKİR FAKÜL FALAN FALCI FALEZ FALSO FALYA FANTA FANTİ FANUS FANYA FARAD FARAŞ FARBA FARİĞ FARİL FASET FASIK FASIL FASİH FASİT FASKA FASON FATİH FAUNA FAYDA FAZIL FAZLA FECİR FEDAİ FEHİM FEHVA FEKÜL FELAH FELEK FEMUR FENCİ FENER FENİK FENNİ FENOL FERAĞ FERAH FERDA FERDİ FERİH FERİK FERLİ FERMA FESAT FESİH FETHA FETİH FETİŞ FETÜS FETVA FEVRİ FEYİZ FIKHİ FIKIH FIKRA FIRÇA FIRIN FIRKA FIŞKI FITIK FITRİ FİBER FİDAN FİDYE FİFRE FİGAN FİGÜR FİİLİ FİKİR FİKRİ FİLAN FİLAR FİLET FİLİZ FİLOZ FİLSİ FİLUM FİNAL FİNİŞ FİRAK FİRAR FİREZ FİRİK FİRMA FİSKE FİSTO FİŞEK FİŞKA FİŞLİ FİTÇİ FİTİL FİTİN FİTNE FİTRE FİYAT FİZİK FLAMA FLEOL FLORA FLORİ FLÖRE FLÖRT FODLA FODRA FODUL FOKUS FOLYO FONDA FONDÜ FONEM FORMA FOROZ FORSA FORSE FORTE FORUM FORZA FOSİL FRANK FRAPE FRESK FREZE FRİGO FRİSA FUAYE FUHUŞ FUJER FULAR FULYA FUNDA FURYA FÜLÜS FÜNYE FÜSUN FÜTUR FÜZEN GABİN GABRO GABYA GADİR GAFİL GAFUR GAİLE GAİTA GALAT GALİP GALİZ GALON GALOP GALOŞ GAMBA GAMET GAMLI GAMZE GARAJ GARAZ GARBİ GARİP GAROZ GASİL GAŞİY GAUSS GAVOT GAVUR GAYDA GAYET GAYRI GAYRİ GAYUR GAYYA GAZAL GAZAP GAZEL GAZLI GAZOZ GAZVE GEBEŞ GEBRE GEÇÇE GEÇEK GEÇEN GEÇER GEÇİM GEÇİŞ GEÇİT GEÇME GEDİK GEDME GELEN GELİM GELİN GELİR GELİŞ GELME GEMRE GENEL GENİŞ GENİZ GENOM GEOİT GERÇİ GEREÇ GEREK GEREN GERGİ GERİM GERİŞ GERİZ GERME GETTO GEVEN GEVİŞ GEVME GEYİK GEYŞA GEZİŞ GEZME GICIK GICIR GIDIK GIDIM GIPTA GIRLA GIYAP GİDER GİDİM GİDİŞ GİDON GİRAY GİRDİ GİREN GİRİM GİRİŞ GİRME GİTAR GİTME GİYİM GİYİŞ GİYİT GİYME GİYSİ GİZEM GİZİL GİZLİ GLASE GNAYS GOCUK GODOŞ GOFRE GOLCÜ GOLLÜ GONCA GORİL GÖBEK GÖBEL GÖBÜT GÖCEN GÖÇER GÖÇME GÖÇÜK GÖÇÜM GÖÇÜŞ GÖDEN GÖDEŞ GÖĞEM GÖĞÜS GÖKÇE GÖLEK GÖLET GÖLGE GÖLÜK GÖMME GÖMÜK GÖMÜŞ GÖMÜT GÖNCÜ GÖNEN GÖNÜL GÖNYE GÖREV GÖRGÜ GÖRME GÖRÜM GÖRÜŞ GÖVDE GÖVEK GÖVEL GÖVEM GÖYME GÖYÜK GÖZCÜ GÖZDE GÖZER GÖZGÜ GÖZLÜ GRADO GRENA GRİDA GRİZU GROGİ GROSA GUANO GUARD GUATR GUDDE GUGUK GULAŞ GULET GURME GURUP GURUR GUSTO GUSÜL GÜBRE GÜBÜR GÜCÜK GÜCÜN GÜÇLÜ GÜDEK GÜDÜK GÜDÜM GÜFTE GÜĞÜM GÜLCÜ GÜLEÇ GÜLLE GÜLLÜ GÜLME GÜLÜK GÜLÜŞ GÜLÜT GÜMAN GÜMEÇ GÜMÜL GÜMÜŞ GÜNAH GÜNCE GÜNDE GÜNEÇ GÜNEŞ GÜNEY GÜNLÜ GÜPÜR GÜREŞ GÜRUH GÜTME GÜVEÇ GÜVEN GÜVEY GÜVEZ GÜZEL GÜZEY GÜZÜN HABBE HABER HABEŞ HABİP HABİS HACET HACİM HACİR HACİZ HAÇLI HADDE HADIM HADİM HADİS HAFIZ HAFİF HAFİT HAFTA HAHAM HAHHA HAİLE HAKAN HAKÇA HAKEM HAKİM HAKİR HAKLI HALAS HALAT HALAY HALEF HALEL HALEN HALET HALFA HALİÇ HALİM HALİS HALKA HALUK HAMAK HAMAL HAMAM HAMIZ HAMİL HAMİŞ HAMLA HAMLE HAMSE HAMSİ HAMUR HAMUT HANAY HANCI HANDE HANEK HANGİ HANIM HANUT HAPAZ HAPÇI HAPİS HAPŞU HARAÇ HARAM HARAP HARAR HARBE HARBİ HAREM HARIM HARIN HARİÇ HARİM HARİR HARİS HARLI HARTA HASAR HASAT HASBİ HASEP HASET HASIL HASIM HASIR HASİS HASPA HASSA HASSE HASTA HASUT HAŞAT HAŞIL HAŞİN HAŞİR HAŞİŞ HAŞİV HATIL HATIR HATİF HATİM HATİP HATMİ HATTA HATUN HAVAİ HAVAN HAVAS HAVİT HAVLI HAVLU HAVRA HAVUÇ HAVUT HAVUZ HAVYA HAVZA HAYAL HAYAT HAYBE HAYCI HAYDA HAYDİ HAYFA HAYIF HAYIR HAYIT HAYIZ HAYLİ HAYTA HAZAN HAZAR HAZCI HAZIK HAZIM HAZIR HAZİN HAZNE HECİN HEDEF HEDER HEDİK HEKİM HELAK HELAL HELİK HELİS HELKE HELME HELVA HEMEN HEMPA HEMŞO HEMZE HENÜZ HEPSİ HEREK HERİF HERİK HERTZ HERZE HESAP HEVES HEYBE HEYET HEZAR HEZEL HEZEN HIFIZ HIMIŞ HIRBO HIRKA HIRLI HISIM HIŞIM HIŞIR HIYAR HIZAR HIZLA HIZLI HIZMA HİCAP HİCAZ HİCİV HİCRİ HİÇÇİ HİDİV HİDRA HİKEM HİLAF HİLAL HİLAT HİLTİ HİLYE HİMEN HİNDİ HİPPİ HİSAR HİSÇE HİSLİ HİSSE HİSSİ HİTAM HİTAN HİTAP HİZİP HODAN HODRİ HOKEY HOKKA HOPPA HORON HOROZ HORST HOŞAF HOŞÇA HOŞUR HOTOZ HOZAN HÖDÜK HÖYÜK HUDUT HUKUK HULUL HULUS HUMAR HUMMA HUMOR HUMUS HURDA HURMA HURRA HURUÇ HUSUF HUSUL HUSUS HUSYE HUTBE HUTUT HUYLU HUZUR HÜCRE HÜCUM HÜKMİ HÜKÜM HÜLLE HÜLYA HÜNER HÜNSA HÜRLE HÜRYA HÜSÜN HÜZME HÜZÜN IĞRIP IHMAK ILGAR ILGIM ILICA ILIMA ILTAR IRAMA IRGAT IRKÇI IRMAK ISKAT ISLAH ISLAK ISLIK ISRAR ISSIZ ISTAR IŞIMA IŞKIN IŞTIR ITLAK ITRAH IZGIN IZRAR İBARE İBATE İBDAİ İBLAĞ İBLİS İBRAZ İBRET İBRİK İBZAL İCBAR İCMAL İÇERİ İÇİCİ İÇKİN İÇLEM İÇLİK İÇMEK İÇREK İÇSEL İÇSİZ İÇTEN İÇYÜZ İDADİ İDAME İDARE İDARİ İDDİA İDEAL İDMAN İDRAK İDRAR İFADE İFFET İFHAM İFLAH İFLAS İFRAĞ İFRAT İFRAZ İFRİT İFSAT İFTAR İĞDİŞ İĞFAL İĞLİK İHALE İHATA İHBAR İHDAS İHLAK İHLAL İHLAS İHMAL İHRAÇ İHRAM İHRAZ İHSAN İHSAS İHTAR İHVAN İHZAR İKAME İKBAL İKDAM İKİCİ İKİLİ İKLİL İKLİM İKMAL İKONA İKRAH İKRAM İKRAR İKRAZ İKSİR İLAHE İLAHİ İLAVE İLBAY İLENÇ İLERİ İLETİ İLGEÇ İLHAK İLHAM İLHAN İLKAH İLKEL İLKİN İLLET İLMEK İLMİK İLZAM İMALE İMALI İMAME İMBAT İMBİK İMDAT İMECE İMKAN İMLEÇ İMLEK İMLİK İMMÜN İMREN İMROZ İMSAK İNANÇ İNCİK İNCİR İNDİS İNFAK İNFAZ İNGİN İNKAR İNMEK İNSAF İNSAN İNŞAT İNTAÇ İNTAK İNTAN İNZAL İPÇİK İPEKA İPHAM İPLİK İPSİZ İPTAL İPUCU İRADE İRADİ İRFAN İRİCE İRİTE İRKME İRMİK İRONİ İRSAL İRSEN İRŞAT İSALE İSHAL İSKAN İSLİM İSMEN İSMET İSNAT İSPAT İSPİR İSPİT İSRAF İSTEK İSTEM İSTER İSTİF İSTİM İSTOP İSYAN İŞEME İŞGAL İŞKAL İŞKİL İŞLEK İŞLEM İŞLEV İŞLİK İŞMAR İŞRET İŞSİZ İŞTAH İŞTEŞ İŞYAR İTAAT İTEĞİ İTHAF İTHAL İTHAM İTİCİ İTİLA İTİNA İTLAF İTLİK İTMAM İTMEK İVEDİ İVESİ İVMEK İYİCE İZABE İZAFE İZAFİ İZALE İZHAR İZLEK İZLEM İZLEV İZOLE İZZET JAKAR JANTİ JARSE JELOZ JETON JİKLE JİLET JOKER JOKEY JÜPON KABAK KABAN KABIZ KABİL KABİN KABİR KABLO KABUK KABUL KABUS KABZA KAÇAK KAÇAR KAÇIK KAÇIŞ KAÇLI KAÇMA KAÇTA KADAR KADEH KADEM KADER KADIN KADİM KADİR KADİT KADRO KADÜK KAFES KAFİR KAFUR KAGİR KAĞAN KAĞIT KAĞNI KAHIR KAHİL KAHİN KAHİR KAHPE KAHVE KAHYA KAİDE KAİME KAKAÇ KAKAO KAKIÇ KAKIM KAKIŞ KAKMA KAKÜL KALAK KALAN KALAS KALAY KALBİ KALCI KALÇA KALEM KALFA KALIÇ KALIK KALIM KALIN KALIP KALIŞ KALIT KALMA KALYA KAMÇI KAMER KAMET KAMGA KAMIŞ KAMİL KAMUS KANAL KANAT KANCA KANIK KANIŞ KANIT KANİŞ KANKA KANLI KANMA KANON KANTO KANUN KAPAK KAPAN KAPIŞ KAPİK KAPİŞ KAPLI KAPMA KAPRİ KAPUT KAPUZ KARAF KARAR KARGA KARGI KARGO KARHA KARIK KARIN KARIŞ KARLI KARMA KARNE KARNİ KAROT KARST KARŞI KARUN KARYE KASAP KASEM KASET KASIK KASIM KASIR KASIT KASİS KASKO KASLI KASMA KASNI KASTİ KAŞAN KAŞAR KAŞIK KAŞİF KAŞLI KATAR KATÇI KATIK KATIM KATIR KATİL KATİP KATKI KATLI KATMA KATOT KATRE KAVAF KAVAK KAVAL KAVAS KAVAT KAVGA KAVİL KAVİM KAVİS KAVKI KAVMİ KAVUK KAVUN KAVUT KAVUZ KAYAÇ KAYAK KAYAN KAYAR KAYGI KAYIK KAYIN KAYIP KAYIR KAYIŞ KAYIT KAYMA KAYME KAYRA KAYŞA KAZAK KAZAN KAZAZ KAZIK KAZIL KAZIM KAZMA KEBAP KEBİR KEBZE KEDER KEFAL KEFEN KEFİL KEFİR KEFNE KEHLE KEKEÇ KEKİK KEKRE KELAM KELEK KELEM KELEP KELER KELEŞ KELİK KELLE KELLİ KEMAL KEMAN KEMER KEMHA KEMİK KEMRE KENAR KENDİ KENEF KENET KEPÇE KEPEK KEPEZ KEPİR KEPME KERDE KEREM KERES KERİH KERİM KERİZ KERKİ KERTE KERTİ KESAT KESBİ KESEK KESEL KESEN KESER KESİF KESİK KESİM KESİN KESİR KESİŞ KESİT KESKİ KESME KESRE KEŞEN KEŞİF KEŞİK KEŞİŞ KEŞKE KEŞKİ KETAL KETEN KETON KETUM KEVEL KEVEN KEYFİ KEYİF KIBLE KIDEM KILGI KILIÇ KILIF KILIK KILIR KILIŞ KILLI KILMA KIMIL KIMIZ KINLI KIPIK KIPMA KIRAÇ KIRAN KIRAT KIRAY KIRBA KIRCA KIRCI KIRIK KIRIM KIRKI KIRMA KISAÇ KISAS KISIK KISIM KISIR KISIŞ KISIT KISKA KISKI KISMA KISMİ KISSA KIŞIN KIŞIR KIŞLA KIŞRİ KITAL KITIK KITIR KIVAM KIYAK KIYAM KIYAS KIYGI KIYIK KIYIM KIYIN KIYIŞ KIYMA KIYYE KIZAK KIZAN KIZIL KIZIŞ KIZMA KİBAR KİBİR KİFAF KİKLA KİLER KİLİM KİLİT KİLİZ KİLLİ KİLSİ KİLÜS KİMSE KİMÜS KİMYA KİNCİ KİNİK KİNİN KİNİŞ KİNLİ KİNOA KİRAZ KİRDE KİREÇ KİREN KİRİŞ KİRLİ KİRPİ KİRVE KİSRA KİSVE KİTAP KİTİN KİTLE KİTRE KİZİR KLAPA KLİMA KLİPS KLİŞE KOALA KOBAY KOBRA KOÇAK KOÇAN KODES KOFRA KOFTİ KOFUL KOĞUŞ KOKAK KOKET KOKMA KOKOŞ KOKOT KOKOZ KOKUŞ KOLAJ KOLAN KOLAY KOLCU KOLEJ KOLİK KOLİT KOLLU KOLON KOLPO KOLSU KOLYE KOLZA KOMAR KOMBİ KOMİK KOMOT KOMŞU KOMUT KOMÜN KONAK KONDU KONİK KONMA KONSA KONUK KONUM KONUR KONUŞ KONUT KOPAL KOPÇA KOPİL KOPMA KOPOY KOPUK KOPUŞ KOPUZ KOPYA KORAL KORKU KORNA KORNO KORSE KORTE KORUK KORUN KORZA KOŞAÇ KOŞAM KOŞİN KOŞMA KOŞUK KOŞUL KOŞUM KOŞUN KOŞUT KOTAN KOTON KOTRA KOVAN KOVCU KOVMA KOVUK KOVUŞ KOYAK KOYAR KOYMA KOYUN KOYUŞ KOYUT KOZAK KÖÇEK KÖFTE KÖHNE KÖKÇÜ KÖKEN KÖKLÜ KÖKSÜ KÖLÜK KÖMBE KÖMEÇ KÖMÜR KÖMÜŞ KÖPEK KÖPRÜ KÖPÜK KÖRPE KÖRÜK KÖSÇÜ KÖSEM KÖSNÜ KÖŞEK KÖTEK KÖYCÜ KÖYLÜ KRAÇA KRAMP KRANK KRAVL KREDİ KREMA KREPE KRİKO KROKİ KROME KROŞE KUBAT KUBBE KUBUR KUCAK KUÇMA KUDAS KUDUZ KUDÜM KUKLA KULAÇ KULAK KULİS KULLE KULUN KULÜP KUMAR KUMAŞ KUMCU KUMLA KUMLU KUMRU KUMSU KUMUÇ KUMUL KUNDA KUPES KUPLE KUPON KUPÜR KURAK KURAL KURAM KURCA KURGU KURMA KURNA KURON KURRA KURUL KURUM KURUN KURUŞ KURUT KURYA KURYE KUSMA KUSUR KUŞAK KUŞÇA KUŞÇU KUŞET KUŞKU KUTAN KUTLU KUTNU KUTSİ KUTUP KUTUR KUVER KUVÖZ KUVVE KUYTU KUYUM KUZEN KUZEY KUZİN KÜBİK KÜÇÜK KÜFLÜ KÜFÜR KÜKRE KÜLAH KÜLÇE KÜLEK KÜLLİ KÜLLÜ KÜLOT KÜLTE KÜMES KÜNCÜ KÜNDE KÜNYE KÜPLÜ KÜRAR KÜRDİ KÜREK KÜRİT KÜRSÜ KÜSKÜ KÜSME KÜSPE KÜSUF KÜSUR KÜŞAT KÜŞNE KÜŞÜM KÜTİN KÜTLE KÜTLÜ KÜTÖR KÜTÜK KÜVET LAÇIN LAÇKA LADEN LADES LADİN LAFÇI LAFIZ LAFZİ LAGAR LAGOS LAGÜN LAĞIM LAĞIV LAHİT LAHOS LAHUT LAHZA LAKAP LAKÇI LAKİN LAKOZ LAMBA LAMEL LANDO LANET LANSE LARGO LARVA LASKİ LASTA LATİF LAVAJ LAVAŞ LAVTA LAVUK LAYIK LAZER LAZIM LAZUT LEÇEK LEDÜN LEGAL LEĞEN LEHÇE LEHİM LEMİS LEMUR LENFA LENTO LEPRA LERZE LEVHA LEVYE LEYDİ LEYLİ LEZAR LEZİZ LIĞLI LIKIR LİBAS LİBOŞ LİBRE LİDER LİFLİ LİGER LİGHT LİKEN LİKİT LİKÖR LİMAN LİMBO LİMİT LİMON LİNET LİNİN LİPİT LİPOM LİRET LİRİK LİSAN LİSTE LİTRE LİVAR LİYAN LİZOL LİZÖZ LOBUT LODOS LOGOS LOJİK LOKAL LOKMA LOKUM LONCA LONGA LOPUR LORTA LOŞÇA LOTUS LÖKOZ LÖPÜR LÜFER LÜGAT LÜGOL LÜMEN LÜNET LÜPÇÜ LÜTUF LÜVER LÜZUM MAADA MABAT MABET MABUT MACUN MADAM MADDE MADDİ MADEM MADEN MADER MADİK MADUN MAFİŞ MAFYA MAGMA MAGRİ MAHAL MAHFE MAHFİ MAHIV MAHİR MAHRA MAHUR MAHUT MAHYA MAİLE MAJÖR MAKAK MAKAM MAKAS MAKAT MAKET MAKRO MAKSİ MAKTA MAKTU MAKUL MAKUS MALAK MALAZ MALCA MALCI MALEN MALİK MALUL MALUM MALYA MAMBO MAMUL MAMUR MAMUT MANAS MANAT MANAV MANCA MANDA MANEJ MANEN MANGA MANGO MANİA MANTI MANTİ MANTO MAPUS MARAL MARAZ MARDA MARİZ MARKA MARKE MARKİ MARON MARTI MARUF MARUL MARUZ MARYA MASAJ MASAL MASAT MASİF MASKE MASNU MASON MASÖR MASÖZ MASTI MASUM MASUN MAŞER MAŞUK MATAH MATBU MATEM MATİZ MATLA MATUF MATUH MAVAL MAVİŞ MAVNA MAVRA MAYIN MAYIS MAYNA MAZAK MAZOT MAZUR MEBDE MEBİZ MEBNİ MEBUS MECAL MECAZ MECMU MECRA MEDAR MEDET MEDİH MEDÜZ MEDYA MEFUL MEĞER MEHAZ MEHDİ MEHİL MEHLE MEKAN MEKİK MELAL MELAS MELCE MELEK MELES MELEŞ MELEZ MELİK MELON MELUL MELUN MEMAT MEMBA MEMNU MEMUL MEMUR MENFA MENFİ MENŞE MENUS MERAK MERAM MERCİ MEREK MERES MERET MERMİ MESAİ MESAJ MESEL MESEN MESMU MESUL MESUT MEŞBU MEŞİN MEŞRU MEŞUM METAL METAN METBU METİL METİN METİS METOT METRE METRO MEVDU MEVKİ MEVLA MEVTA MEVUT MEVZİ MEVZU MEYAN MEYİL MEYUS MEYVE MEZAR MEZAT MEZON MEZRA MEZRU MEZUN MEZÜR MEZZO MICIR MIGIR MIGRİ MIHÇI MIHLI MIRRA MISIR MISRA MİÇEL MİDYE MİKAP MİKOZ MİKRO MİLAT MİLEL MİLİM MİLİS MİLLİ MİMAR MİMİK MİMLİ MİNİK MİNÖR MİRAÇ MİRAS MİRAT MİRZA MİSAK MİSAL MİSEL MİSİL MİSİS MİTİL MİTOS MİTOZ MİYAR MİYAV MİYAZ MİYOM MİYOP MİZAÇ MİZAH MİZAN MOBİL MODEL MODEM MODÜL MOHER MOLAS MOLLA MOLOZ MONAT MONTE MOPET MORAL MOREN MORTO MORUK MOTEL MOTİF MOTOR MOTTO MOUSE MOZAK MÖBLE MÖSYÖ MUARE MUCİP MUCİR MUCİT MUCUK MUCUR MUFLA MUHAL MUHAT MUHİK MUHİL MUHİP MUHİT MUJİK MUKİM MUKNİ MUKUS MULAJ MUMCU MUMLU MUMYA MUNİS MURAT MURİS MUSAP MUSIR MUSKA MUSON MUŞTA MUŞTU MUTAF MUTAT MUTÇU MUTLU MUYLU MUZIR MUZİP MUZSU MUZUR MÜBAH MÜDÜR MÜFİT MÜFTÜ MÜHİM MÜHRE MÜHÜR MÜJDE MÜLGA MÜLKİ MÜMAS MÜMİN MÜNŞİ MÜRAİ MÜRİT MÜRUR MÜŞİR MÜZİÇ MÜZİK NABIZ NACAK NAÇAR NAÇİZ NADAN NADAS NADİM NADİR NAFİA NAFİZ NAFTA NAĞME NAHAK NAHIR NAHİF NAHİV NAHOŞ NAKDİ NAKIS NAKIŞ NAKIZ NAKİL NAKİP NAKİT NAKLİ NALAN NALÇA NALIN NALLI NAMAZ NAMLI NAMLU NAMUS NANAY NANİK NARİN NASIL NASIP NASIR NASİP NASİR NAŞAD NAŞİR NATIR NATUK NATÜR NAZAL NAZAR NAZIM NAZIR NAZİK NAZİL NAZİR NAZLI NEBAT NECAT NECİP NEDBE NEDEN NEDİM NEFER NEFES NEFHA NEFİR NEFİS NEFİY NEFSİ NEFTE NEFTİ NEHİR NEHİY NEKES NEKRE NEMLİ NESEP NESİÇ NESİH NESİL NESİM NESİR NESNE NEŞET NEŞİR NEVİR NEYÇE NEYSE NEZİF NEZİH NEZİR NEZLE NISIF NİCEL NİÇİN NİFAK NİHAİ NİHAN NİKAH NİKAP NİKEL NİMET NİNNİ NİPEL NİSAİ NİSAN NİSAP NİSPİ NİŞAN NİTEL NİYAZ NİYET NİZAM NODUL NODÜL NOHUT NOKRA NOKTA NONOŞ NOTAM NOTER NÖBET NÖRON NUKUT NUMEN NURLU NUTUK NÜANS NÜFUS NÜFUZ NÜKTE NÜKUL NÜSHA NÜZUL OBERJ OBRUK OCUMA ODACI ODALI ODEON ODSUZ OFANS OFLAZ OFRİS OFSET OĞLAK OĞLAN OJELİ OKAPİ OKLUK OKRUK OKSİT OKTAN OKTAV OKUMA OKUME OLASI OLCAY OLÇUM OLEİK OLEİN OLGUN OLMAK OLMAZ OLMUŞ OLURU OMBRA OMBRE OMLET ONAMA ONGEN ONGUN ONİKS ONLAR ONLUK ONMAK ONSUZ OOSİT OPERA OPTİK ORADA ORALI ORASI ORCİK ORFOZ ORGAN ORGCU ORKİT ORLON ORMAN ORTAÇ ORTAK ORTAM ORTAY ORTEZ ORTOZ OTACI OTAMA OTÇUL OTİST OTİZM OTLAK OTLUK OTSUL OTSUZ OVALI OVMAÇ OVMAK OYACI OYALI OYDAŞ OYLUM OYMAK OYNAK OYNAŞ OZMOZ OZUGA ÖBÜRÜ ÖDEME ÖDLEK ÖDÜNÇ ÖĞLEN ÖĞREK ÖKSÜZ ÖLÇEK ÖLÇER ÖLÇME ÖLÇÜM ÖLÇÜN ÖLÇÜŞ ÖLÇÜT ÖLGÜN ÖLMEK ÖLMEZ ÖLMÜŞ ÖNCEL ÖNCÜL ÖNDER ÖNERİ ÖNEZE ÖNLEM ÖNLÜK ÖNSEL ÖPMEK ÖRCİN ÖRDEK ÖREKE ÖRGEN ÖRGÜN ÖRGÜT ÖRMEK ÖRNEK ÖRTME ÖRTÜK ÖRTÜŞ ÖRÜCÜ ÖRÜLÜ ÖTEKİ ÖTMEK ÖTÜCÜ ÖTÜRÜ ÖVMEK ÖVÜCÜ ÖVÜNÇ ÖZDEK ÖZDEN ÖZDEŞ ÖZEME ÖZENÇ ÖZENİ ÖZERK ÖZGÜL ÖZGÜN ÖZGÜR ÖZLEM ÖZLÜK ÖZNEL ÖZSEL PABUÇ PAÇAL PAÇOZ PADIL PADOK PAFTA PAGAN PAHAL PAKET PALAN PALAS PALAZ PALET PALTO PAMPA PAMUK PANÇO PANDA PANEL PANİK PAPAK PAPAZ PAPEL PARAF PARÇA PARKA PARKE PARPA PARSA PARTİ PARYA PASAJ PASAK PASÇI PASİF PASLI PASÖR PASTA PATAK PATAL PATEN PATİK PATOZ PATSO PAUNT PAYAN PAYDA PAYEN PAYET PAYLI PAZAR PAZEN PEÇİÇ PEDAL PEDER PEKÇE PELİN PELİT PELTE PELÜR PELÜŞ PEMBE PENÇE PENES PENGÖ PENİS PENSE PENYE PERDE PERKİ PERMA PERMİ PERON PERUK PERVA PESEK PESÜS PEŞİN PEŞLİ PETEK PEYDA PEYKE PIHTI PINAR PIRPI PIRTI PISMA PIŞIK PİGME PİKAJ PİKAP PİKET PİLAV PİLİÇ PİLLİ PİLOT PİNEL PİNES PİNTİ PİPET PİRİT PİSİK PİSİN PİŞEK PİŞİK PİŞİM PİŞME PİŞTİ PİTON PİVOT PİYAN PİYAZ PİYES PİYON PİZZA PLAKA PLASE PLATİ PLATO PLAZA PLİLİ PLİSE POKER POLAR POLAT POLEN POLİM POLİP POLİS POLKA POLÜM POMAT POMPA PONJE PONZA POPÇU PORNO PORTE PORTO POSTA POŞET POTAS POTİN POTUK POTUR POYRA POZLU PÖÇÜK PRAFA PRENS PRESE PRİNT PROJE PROVA PRUVA PUDRA PUFLA PULCU PULLU PULSU PULUÇ PUMBA PUNTA PUNTO PUSAT PUSET PUSLU PUSMA PUVAR PÜNEZ PÜREN PÜRÜZ PÜSÜR PÜTÜR RABIT RACON RADAR RADDE RADON RADYO RAFİT RAFLI RAFYA RAGBİ RAHAT RAHİM RAHİP RAHLE RAHNE RAKAM RAKET RAKIM RAKİK RAKİP RAKİT RAKOR RAKUN RALLİ RAMAK RAMPA RANDA RANZA RAPOR RASAT RASIT RASPA RASYO RATIP RAUNT RAYBA RAYİÇ RAYLI REAYA REBAP RECEP RECİM REÇEL REDİF REFAH REFİK REFLÜ REFÜJ REHİN REJİM REKAT REKİZ REKOR REMEL REMİL REMİZ REMZİ RENDE RESEN RESİF RESİM RESMİ RESTO RESUL REŞİT REŞME REVAÇ REVAK REVAN REVİR REVİŞ REYON REZİL RIZIK RİCAL RİCAT RİJİT RİMEL RİNGA RİTİM RİYAL ROBOT RODAJ RODEO ROKET ROLCÜ ROMAN RONDO ROSTO ROTİL ROTOR ROZET RÖFLE RÖGAR RÖLİK RÖTAR RÖTUŞ RUBAİ RUBLE RUGAN RUHÇA RUHÇU RUHEN RUHLU RUJLU RULET RUMBA RUMUZ RUNİK RUTİN RÜESA RÜKÜN RÜKÜŞ RÜSUM RÜSUP RÜSVA RÜTBE RÜYET SABAH SABAN SABIK SABIR SABİT SABUH SABUN SABUR SAÇAK SAÇIK SAÇIŞ SAÇLI SAÇMA SADAK SADET SADIK SADIR SADİK SADME SAFÇA SAFER SAFHA SAFİR SAFRA SAĞCI SAĞIM SAĞIN SAĞIR SAĞMA SAĞRI SAHAF SAHAN SAHİH SAHİL SAHİP SAHNE SAHRA SAHRE SAHTE SAHUR SAİKA SAKAF SAKAK SAKAL SAKAR SAKAT SAKIN SAKIT SAKIZ SAKİL SAKİM SAKİN SAKİT SAKLI SAKSI SALAH SALAK SALAM SALAŞ SALAT SALCI SALÇA SALEP SALGI SALIK SALİH SALİK SALİM SALİP SALLI SALMA SALON SALOZ SALPA SALSA SALTA SALTO SALVO SALYA SAMAN SAMBA SAMSA SAMUR SAMUT SANAL SANAT SANCI SANEM SANGI SANIK SANIŞ SANKİ SANLI SANMA SANRI SAPAK SAPAN SAPIK SAPIŞ SAPKI SAPLI SAPMA SARAÇ SARAK SARAT SARAY SARGI SARIK SARIM SARIŞ SARİG SARİH SARMA SARPA SATEN SATHİ SATIH SATIM SATIR SATIŞ SATİR SATMA SAUNA SAVAK SAVAN SAVAP SAVAŞ SAVAT SAVCA SAVCI SAVIŞ SAVLA SAVLO SAVMA SAYAÇ SAYFA SAYGI SAYHA SAYIM SAYIN SAYIŞ SAYMA SAYRI SAZAK SAZAN SAZCI SAZLI SEANS SEBAT SEBEP SEBİL SEBZE SECDE SEÇAL SEÇİM SEÇİŞ SEÇKİ SEÇME SEDEF SEDİR SEDYE SEFER SEFİH SEFİL SEFİR SEGAH SEHER SEHİM SEHİV SEHPA SEKEL SEKİL SEKİŞ SEKİZ SEKME SEKSİ SEKTE SELAM SELEF SELEK SELEN SELİM SELİS SELVA SELVİ SEMAH SEMAİ SEMAN SEMEN SEMER SEMİH SEMİZ SENCE SENEK SENET SENİR SENİT SEPEK SEPET SEPYA SERAK SERAP SERÇE SEREN SERGİ SERİM SERİN SERİŞ SERME SERUM SERVİ SESÇİ SESLİ SETER SETİK SETİR SETRE SEVAP SEVDA SEVER SEVGİ SEVİM SEVİŞ SEVME SEYEK SEYİR SEYİS SEYİT SEZGİ SEZİŞ SEZME SEZON SFSFS SICAK SIÇAN SIÇMA SIFAT SIFIR SIĞAÇ SIĞIN SIĞIR SIĞLA SIĞMA SIHHİ SIHRİ SIKÇA SIKIM SIKIT SIKMA SIMAK SINAİ SINAV SINDI SINIF SINIK SINIR SINMA SIRAT SIRCI SIRÇA SIRIK SIRIM SIRLI SIRMA SISKA SITMA SIVAT SIVIK SIYGI SIZAK SIZIŞ SIZMA SİBER SİBOP SİCİL SİCİM SİDİK SİFON SİGAR SİĞİL SİHİR SİKKE SİKME SİLAH SİLAJ SİLGİ SİLİK SİLİS SİLİŞ SİLKİ SİLLE SİLME SİMGE SİMİT SİMYA SİNEK SİNİK SİNİR SİNİŞ SİNLE SİNME SİNSİ SİNÜS SİPER SİPSİ SİREN SİRET SİRKE SİRMO SİROZ SİRTO SİSLİ SİTEM SİTİL SİVİL SİVRİ SİYAH SİYAK SİYEK SİYER SİYME SİZCE SKALA SKİNK SLASH SLAYT SOFRA SOFTA SOĞAN SOĞUK SOKAK SOKET SOKMA SOKRA SOKUM SOKUR SOKUŞ SOLAK SOLCU SOLMA SOLOZ SOLUK SOLUŞ SOMAK SOMON SOMUN SOMUT SOMYA SONAR SONAT SONDA SONKİ SONLU SONRA SONUÇ SORGU SORİT SORMA SORTİ SORUM SORUN SORUŞ SOSİS SOYKA SOYLU SOYMA SOYUM SOYUŞ SOYUT SÖĞÜŞ SÖĞÜT SÖKEL SÖKME SÖKÜK SÖKÜM SÖKÜN SÖKÜŞ SÖLOM SÖNME SÖNÜK SÖNÜM SÖNÜŞ SÖVEN SÖVGÜ SÖVME SÖVÜŞ SÖZCE SÖZCÜ SÖZDE SÖZEL SÖZLÜ SPAZM SPERM SPREY STANT START STATÜ STENO STENT STEPS STİLO STREÇ STRES STUPA SUARE SUBAY SUBRA SUBYE SUCUK SUCUL SUÇLU SUDAK SUDAN SUFLE SUKUT SULAK SULTA SULUK SUMAK SUNAK SUNGU SUNMA SUNTA SUNUM SUNUŞ SUOKU SUPAP SUPLA SURAT SURET SUSAK SUSAM SUSKU SUSMA SUSTA SUSUŞ SUSUZ SUTAŞ SUTLU SUVAT SUYUK SÜBEK SÜBUT SÜBYE SÜCUT SÜFLİ SÜĞME SÜKSE SÜKUN SÜKUT SÜLUK SÜLÜK SÜLÜN SÜLÜS SÜMEK SÜMEN SÜMÜK SÜNGÜ SÜNME SÜPER SÜRAT SÜREÇ SÜREK SÜREM SÜRFE SÜRGÜ SÜRME SÜRRE SÜRUR SÜRÜM SÜRÜŞ SÜSEN SÜSLÜ SÜSME SÜTÇÜ SÜTLÜ SÜTRE SÜTSÜ SÜTUN SÜVEN SÜVME SÜYEK SÜYÜM SÜZEK SÜZGÜ SÜZME SÜZÜK SÜZÜŞ ŞABAN ŞABAŞ ŞAFAK ŞAFUL ŞAHAP ŞAHIS ŞAHİN ŞAHİT ŞAHNE ŞAHSİ ŞAİBE ŞAİRE ŞAKAK ŞAKIT ŞAKUL ŞALAK ŞAMAN ŞAMAR ŞAMİL ŞANLI ŞAPÇI ŞAPEL ŞAPKA ŞAPLI ŞARAP ŞARKI ŞARPİ ŞARYO ŞAŞAA ŞAŞMA ŞATIR ŞAVUL ŞAYAK ŞAYAN ŞAYET ŞAYİA ŞAYKA ŞEBEK ŞEDDE ŞEDİT ŞEFİK ŞEHİR ŞEHİT ŞEHLA ŞEKEL ŞEKER ŞEKİL ŞEKLİ ŞEKVA ŞELEK ŞELPE ŞEMSE ŞEMSİ ŞEPİT ŞERAN ŞEREF ŞERHA ŞERİF ŞERİK ŞERİR ŞERİT ŞERPA ŞETİM ŞINAV ŞIPKA ŞIRAK ŞİFON ŞİFRE ŞİKAR ŞİLEM ŞİLEP ŞİLİN ŞİLTE ŞİMAL ŞİMDİ ŞİNİK ŞİRİN ŞİŞEK ŞİŞİK ŞİŞKO ŞİŞME ŞİTAP ŞOFÖR ŞOPAR ŞOSET ŞOSON ŞOVEN ŞÖLEN ŞÖMİZ ŞÖYLE ŞUARA ŞUBAT ŞUNCA ŞURUP ŞÜKÜR ŞÜMUL ŞÜPHE TAALA TABAK TABAN TABİİ TABİP TABİR TABLA TABLO TABUR TABUT TABYA TACİL TACİR TACİZ TAÇLI TADAT TADIM TADİL TAFRA TAFTA TAHIL TAHİN TAHİR TAHRA TAHTA TAKAS TAKAT TAKIK TAKIM TAKİM TAKİP TAKKE TAKLA TAKMA TAKOZ TAKSA TAKSİ TAKTİ TAKVA TALAK TALAN TALAŞ TALAZ TALEP TALER TALİH TALİK TALİL TALİM TALİP TAMAH TAMAM TAMİK TAMİM TAMİR TANEN TANGO TANIK TANIM TANIŞ TANIT TANİN TANRI TAPAN TAPIŞ TAPİR TAPMA TAPON TARAF TARAK TARAŞ TARAZ TARET TARIM TARİF TARİH TARİK TARİZ TARLA TARTI TASAR TASDİ TASIM TASMA TASNİ TAŞAK TAŞÇI TAŞIL TAŞIM TAŞIT TAŞLI TAŞMA TAŞRA TAŞSI TATAR TATİL TATLI TATMA TAVAF TAVAN TAVCI TAVIR TAVİK TAVİZ TAVLA TAVLI TAVUK TAVUS TAYFA TAYGA TAYIN TAYİN TAYİP TAZİM TAZİP TAZİZ TEALİ TEATİ TEBAA TEBER TECİL TECİM TEDAİ TEDİP TEĞET TEHİR TEİST TEİZM TEKÇİ TEKEL TEKER TEKİL TEKİN TEKİR TEKİT TEKKE TEKLİ TEKME TEKNE TEKST TELAŞ TELEF TELEK TELEM TELES TELİF TELİN TELİS TELLİ TELSİ TELVE TEMAS TEMEK TEMEL TEMİN TEMİZ TEMPO TENGE TENHA TENİS TENOR TENTE TENYA TEORİ TEPİK TEPİR TEPİŞ TEPKE TEPKİ TEPME TEPSİ TERAS TERBİ TEREK TERES TERFİ TERİM TERKİ TERLİ TERME TERÖR TERZİ TESİR TESİS TESİT TESRİ TESTİ TEŞCİ TEŞNE TEŞRİ TEŞYİ TETİK TETİR TEVDİ TEVEK TEVİL TEVKİ TEVSİ TEVZİ TEYEL TEYİT TEYZE TEZAT TEZCE TEZEK TEZLİ TIBBİ TIFIL TIKAÇ TIKIM TIKIR TIKIZ TIKMA TIMAR TINAZ TINMA TIPKI TIRAK TIRAŞ TIRCI TIRIK TIRIL TIRIS TİFÜS TİKEL TİLKİ TİMÜS TİNER TİPİK TİRAJ TİRAN TİRAT TİRİT TİRİZ TİRLE TİRSİ TİRŞE TİTAN TİTİZ TOHUM TOKAÇ TOKAT TOKLU TOKUZ TOKYO TOLGA TOMAK TOMAR TONAJ TONER TONGA TONİK TONLA TONLU TONOZ TOPAÇ TOPAK TOPAL TOPAZ TOPÇU TOPİK TOPLA TOPLU TOPUK TOPUR TOPUT TOPUZ TORAK TORBA TORİK TORNA TORTU TORUM TORUN TOSUN TOTAL TOTEM TOYCA TOYCU TOYGA TOZAN TOZLU TOZMA TÖREL TÖREN TÖRPÜ TÖVBE TÖZEL TRAFO TRAKE TRANS TRANŞ TRATA TREND TRİKO TROMP TRÖST TUFAN TUGAY TUĞCU TUĞLA TUĞLU TUĞRA TUHAF TULUK TULUM TULUP TUMAN TUMBA TUNİK TURAÇ TURBA TURBO TURFA TURNA TURNE TURNO TURŞU TURTA TUŞLU TUTAÇ TUTAK TUTAM TUTAR TUTKU TUTMA TUTUK TUTUM TUTUŞ TUTYA TUVAL TUYUĞ TUZAK TUZCU TUZLA TUZLU TUZSU TÜFEK TÜLEK TÜMCE TÜMEL TÜMEN TÜMEY TÜMÖR TÜMÜR TÜNEK TÜNEL TÜPÇÜ TÜPLÜ TÜRAP TÜRBE TÜREL TÜREM TÜREV TÜRKÜ TÜRLÜ TÜRÜM TÜTME TÜTSÜ TÜTÜN TÜVAN TÜVİT TÜYLÜ TÜYME TÜYSÜ TÜZEL TÜZÜK TVİST UCUBE UÇARI UÇKUN UÇKUR UÇMAK UÇMAN UÇSUZ UÇUCU UĞRAK UĞRAŞ UĞRUN UKALA UKNUM ULAMA ULEMA ULUFE ULUMA UMACI UMMAK UMMAN UMUMİ UNLUK UNSUR URGAN USANÇ USARE USKUR USSAL USULİ UŞKUN UŞŞAK UTANÇ UTMAK UYARI UYGAR UYGUN UYLUK UYMAK UYMAZ UYRUK UYSAL UYUMA UZAMA UZLET UZLUK UZMAN UZZAL ÜCRET ÜÇGEN ÜÇGÜL ÜÇKAT ÜÇLER ÜÇLÜK ÜÇTAŞ ÜDEBA ÜFLEÇ ÜĞRÜM ÜLFET ÜLGER ÜLSER ÜMERA ÜMMET ÜMRAN ÜNDEŞ ÜNİTE ÜNLEM ÜNSÜZ ÜNVAN ÜREME ÜREMİ ÜRKEK ÜRKME ÜRKÜŞ ÜRÜME ÜRYAN ÜSERA ÜSKÜF ÜSLUP ÜSTAT ÜSTEL ÜSTLÜ ÜSTÜN ÜŞENÇ ÜŞMEK ÜŞÜME ÜTMEK ÜTÜCÜ ÜTÜLÜ ÜZERE ÜZERİ ÜZGÜN ÜZLÜK ÜZMEK ÜZÜCÜ ÜZÜNÇ VACİP VAGON VAHİM VAHİT VAHİY VAHŞİ VAKAR VAKFE VAKIA VAKIF VAKİT VAKUM VAKUR VALİZ VALLA VALÖR VAPUR VARAK VARAN VARDA VARGI VARIŞ VARİL VARİS VARİT VARMA VAROŞ VARTA VASAT VASIF VASIL VAŞAK VATAN VATKA VATOZ VAZIH VEBAL VECİH VECİZ VEÇHE VEDİA VEFAT VEHİM VEKİL VELET VELUR VELUT VERDİ VEREM VEREV VERGİ VERİM VERİŞ VERİT VERME VEZİN VEZİR VEZNE VICIK VİDEO VİGLA VİLLA VİRAJ VİRAL VİRAN VİRÜS VİSAL VİSKİ VİŞNE VİTES VİTİR VİYAK VİYOL VİZON VİZÖR VOKAL VOLAN VOLTA VONOZ VOTKA VOYVO VUKUF VULVA VURAÇ VURGU VURMA VURUK VURUŞ VUSUL VUZUH VÜCUT VÜRUT VÜSAT YABAN YABGU YAFTA YAĞAR YAĞCI YAĞIR YAĞIŞ YAĞIZ YAĞLI YAĞMA YAĞSI YAHEY YAHNİ YAHŞİ YAHUT YAKIM YAKIN YAKIŞ YAKIT YAKİN YAKMA YAKUT YALAK YALAN YALAZ YALIM YALIN YALIZ YALPA YALPI YAMAÇ YAMAK YAMAN YAMÇI YAMUK YANAK YANAL YANAY YANAZ YANCI YANGI YANIK YANIŞ YANIT YANKI YANLI YANMA YANSI YAPAK YAPAY YAPIK YAPIM YAPIŞ YAPIT YAPMA YARAK YARAN YARAR YARAŞ YARDA YAREN YARGI YARIK YARIM YARIN YARIŞ YARKA YARMA YASAK YASAL YASLI YASMA YASSI YAŞAM YAŞÇA YAŞIT YAŞLI YATAK YATAY YATÇI YATIK YATIM YATIR YATIŞ YATMA YATSI YAVAN YAVAŞ YAVER YAVRU YAVSI YAVUZ YAYAN YAYGI YAYIK YAYIM YAYIN YAYIŞ YAYLA YAYLI YAYMA YAZAR YAZGI YAZIK YAZIM YAZIN YAZIŞ YAZIT YAZMA YEDEK YEDİZ YEDME YEGAH YEGAN YEĞEN YEĞİN YEĞNİ YEKDÜ YEKTA YEKUN YELEÇ YELEK YELİN YELLİ YELME YELVE YEMCİ YEMEK YEMİN YEMİŞ YENGE YENGİ YENİK YENLİ YENME YEREL YEREY YERGİ YERLİ YERME YEŞİL YEŞİM YETER YETİK YETİM YETKE YETKİ YETME YEVMİ YEYGİ YEZİT YIĞIN YIĞIŞ YIĞMA YIKIK YIKIM YIKIŞ YIKMA YILAN YILGI YILIK YILKI YILMA YIRIK YİĞİT YİRİK YİRMİ YİTİK YİTİM YİTİŞ YİTME YİVLİ YİYİM YİYİŞ YOBAZ YOĞUN YOKÇU YOKSA YOKUŞ YOLAK YOLCU YOLLU YOLMA YOLUK YONCA YONGA YONMA YONTU YORGA YORMA YORTU YORUM YOSMA YOSUN YÖNEY YÖNLÜ YUDUM YUFKA YUKAÇ YULAF YULAR YUMAK YUMMA YUMRU YUMUK YUNAK YUNMA YUNUS YURDU YUTAK YUTMA YUTUM YUTUŞ YUVAK YUVAR YUVGU YÜKÇÜ YÜKLÜ YÜKÜM YÜKÜN YÜLGÜ YÜLÜK YÜNLÜ YÜREK YÜSRÜ YÜZDE YÜZER YÜZEY YÜZLÜ YÜZME YÜZÜK YÜZÜŞ ZABIT ZABİT ZAFER ZAĞAR ZAĞCI ZAĞLI ZAHİR ZAHİT ZAHME ZALİM ZAMAN ZAMİR ZAMLI ZAMME ZANKA ZANLI ZARAR ZARCI ZARİF ZARSI ZARTA ZATEN ZAYIF ZEBAN ZEBRA ZEBUN ZECİR ZECRİ ZEFİR ZEHAP ZEHİR ZEKAT ZEKER ZELİL ZELVE ZEMİN ZENCİ ZENNE ZERDE ZERRE ZEVAL ZEVAT ZEVCE ZEYİL ZIBIN ZIHLI ZIMBA ZIMNİ ZIPIR ZIPKA ZIRVA ZİFAF ZİFİN ZİFİR ZİFOS ZİGON ZİGOT ZİHAF ZİHİN ZİHNİ ZİKİR ZİLLİ ZİMMİ ZİNDE ZİRAİ ZİRVE ZİYAN ZLOTİ ZOMBİ ZONAL ZORBA ZORCA ZORLA ZORLU ZORUN ZUHUR ZULÜM ZURNA ZÜBDE ZÜHUL ZÜKAM ZÜLAL ZÜLÜF ZÜMRE ZÜPPE ZÜRRA ZÜYUF";
+const VALID = new Set(TDK5.split(" "));
+WORDS.forEach(w => VALID.add(w[0]));
+
+const CAT = { bil: "Bilişim", fen: "Bilim", gen: "Genel" };
+const ROWS = 6, LEN = 5;
+const KEYS = [
+  ["E","R","T","Y","U","I","O","P","Ğ","Ü"],
+  ["A","S","D","F","G","H","J","K","L","Ş","İ"],
+  ["ENTER","Z","C","V","B","N","M","Ö","Ç","DEL"]
+];
+const ALPHA = new Set(KEYS.flat().filter(k => k.length === 1));
+const WIN_MSG = ["Dahi!", "Muhteşem!", "Harika!", "Çok iyi!", "İyi iş!", "Kıl payı!"];
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const fmtTime = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+
+/* ---------- depolama (yalnızca bu tarayıcı) ---------- */
+const mkStore = area => ({
+  get(k, d) { try { const v = window[area].getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { window[area].setItem(k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { window[area].removeItem(k); } catch (e) {} }
+});
+const store = mkStore("localStorage"), sess = mkStore("sessionStorage");
+const K_STATE = "harfiye-state", K_STATS = "harfiye-stats", K_BAG = "harfiye-bag", K_SEEN = "harfiye-seen";
+const K_NAME = "harfiye-name", K_MP = "harfiye-mp", K_MPGAME = "harfiye-mpgame";
+
+let state, stats, profile, busy = false;
+const K_PROFILE = "harfiye-profile", K_DAILY = "harfiye-daily";
+const emptyStats = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: [0,0,0,0,0,0], lastWinDay: null, freezes: 0 });
+const emptyProfile = () => ({ ink: 0, theme: "sabah", owned: ["sabah"], wear: { head: null, eyes: null, neck: null }, claimed: [], lastMode: "daily" });
+const saveProfile = () => store.set(K_PROFILE, profile);
+const saveStats = () => store.set(K_STATS, stats);
+
+/* ---------- günün bulmacası ----------
+   Gün Türkiye saatine (UTC+3) göre değişir; No. 1 = 23 Ekim 2026.
+   Sıra sabit tohumla karıştırıldığı için herkese aynı gün aynı kelime gelir.
+   Not: kelime listesi değişirse günlük sıra da değişir. */
+const TR_OFFSET = 3 * 3600e3, DAY = 864e5, EPOCH = Math.floor(Date.UTC(2026, 9, 23) / DAY);
+const dayIndex = () => Math.floor((Date.now() + TR_OFFSET) / DAY);
+const dayNo = () => dayIndex() - EPOCH + 1;
+const msToNextDay = () => (dayIndex() + 1) * DAY - TR_OFFSET - Date.now();
+const DAILY_ORDER = (() => {
+  let s = 20261023;
+  const rnd = () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const a = WORDS.map((_, i) => i);
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+})();
+const dailyIdx = (n = dayNo()) => DAILY_ORDER[(((n - 1) % WORDS.length) + WORDS.length) % WORDS.length];
+const dailyDone = () => { const d = store.get(K_DAILY, null); return !!(d && d.day === dayNo() && d.status !== "play"); };
+
+/* ---------- serbest oyun: rastgele, bitene kadar tekrarsız; o günün kelimesi çözülmeden gelmez ---------- */
+function nextIndex() {
+  let bag = store.get(K_BAG, []);
+  const fill = () => {
+    bag = WORDS.map((_, i) => i);
+    for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+  };
+  if (!Array.isArray(bag) || !bag.length || bag.some(i => !(i in WORDS))) fill();
+  let idx = bag.pop();
+  if (idx === dailyIdx() && !dailyDone()) { if (!bag.length) fill(); const other = bag.pop(); bag.unshift(idx); idx = other; }
+  store.set(K_BAG, bag);
+  return idx;
+}
+const newFree = () => ({ mode: "free", idx: nextIndex(), guesses: [], current: "", status: "play", hint: false });
+function loadDaily() {
+  const n = dayNo(), d = store.get(K_DAILY, null);
+  if (d && d.day === n && d.idx === dailyIdx(n) && Array.isArray(d.guesses)) return Object.assign(d, { mode: "daily" });
+  return { mode: "daily", day: n, idx: dailyIdx(n), guesses: [], current: "", status: "play", hint: false };
+}
+function loadFree() {
+  const s = store.get(K_STATE, null);
+  return s && s.idx in WORDS && Array.isArray(s.guesses) ? Object.assign(s, { mode: "free" }) : newFree();
+}
+const answer = () => WORDS[state.idx][0];
+function save() {
+  if (state.mode === "multi") sess.set(K_MPGAME, { code: MP.code, round: MP.round, v: MP.v, state });
+  else if (state.mode === "daily") store.set(K_DAILY, state);
+  else store.set(K_STATE, state);
+}
+function setMode(m) {
+  if (MP.on) return;
+  profile.lastMode = m; saveProfile();
+  closeAll();
+  state = m === "daily" ? loadDaily() : loadFree();
+  save();
+  withVT(renderBoard);
+  if (m === "daily") { checkStreak(); if (state.status === "play" && !state.guesses.length) say("Günün bulmacası hazır!", "happy"); }
+}
+
+/* ---------- seri: kaçırılan günü seri koruma kapatır ---------- */
+function checkStreak() {
+  if (!stats.streak || stats.lastWinDay == null) return;
+  const gap = dayNo() - stats.lastWinDay - 1; // bugün hariç kaçırılan gün
+  if (gap <= 0) return;
+  if (stats.freezes >= gap) {
+    stats.freezes -= gap; stats.lastWinDay = dayNo() - 1;
+    toast(`Seri koruma kullanıldı, ${stats.streak} günlük serin duruyor`, 2800);
+  } else stats.streak = 0;
+  saveStats();
+}
+
+/* ---------- ödüller: mürekkep, kilometre taşları, dükkân ---------- */
+const ITEMS = {
+  sabah:   { kind: "theme", name: "Sabah Baskısı", price: 0,   desc: "Kâğıt ve mürekkep." },
+  night:   { kind: "theme", name: "Gece Baskısı",  price: 120, desc: "Koyu kâğıt, açık mürekkep." },
+  chalk:   { kind: "theme", name: "Kara Tahta",    price: 200, desc: "Yeşil tahta, tebeşir yazısı." },
+  type:    { kind: "theme", name: "Daktilo",       price: 250, desc: "Sararmış kâğıt, daktilo harfleri." },
+  neon:    { kind: "theme", name: "Neon Tabela",   price: 400, desc: "Gece yanan tabela ışıkları." },
+  glasses: { kind: "wear", slot: "eyes", name: "Yuvarlak gözlük", price: 80 },
+  bow:     { kind: "wear", slot: "neck", name: "Papyon",          price: 100 },
+  scarf:   { kind: "wear", slot: "neck", name: "Atkı",            price: 120 },
+  cap:     { kind: "wear", slot: "head", name: "Kasket",          price: 150 },
+  phones:  { kind: "wear", slot: "head", name: "Kulaklık",        price: 180 },
+  gradcap: { kind: "wear", slot: "head", name: "Mezuniyet kepi",  price: 500 }
+};
+const SWATCH = { sabah: ["#efebe0", "#2f7a4a", "#d9a21b", "#b0392c"], night: ["#191a1e", "#3f9a62", "#e0b13a", "#c9503f"],
+  chalk: ["#22392e", "#5fae6b", "#e8c450", "#d5675a"], type: ["#f2e8d2", "#5d7f3b", "#c9992d", "#9b3e2b"], neon: ["#0e0c16", "#19e08f", "#ffd23f", "#ff4d7d"] };
+const MILESTONES = [[5, "night"], [15, "glasses"], [30, "chalk"], [50, "cap"], [100, "neon"], [200, "gradcap"]];
+const MILE_INK = 25, FREEZE_PRICE = 60, FREEZE_MAX = 2;
+const milestoneOf = id => (MILESTONES.find(m => m[1] === id) || [])[0];
+
+function checkMilestones() {
+  const out = [];
+  MILESTONES.forEach(([n, id]) => {
+    if (stats.wins >= n && !profile.claimed.includes(n)) {
+      profile.claimed.push(n);
+      if (!profile.owned.includes(id)) profile.owned.push(id);
+      profile.ink += MILE_INK; out.push({ n, id });
+    }
+  });
+  return out;
+}
+
+function recordSolo(won) {
+  const daily = state.mode === "daily", n = state.guesses.length;
+  stats.played++;
+  if (won) { stats.wins++; stats.dist[n - 1]++; }
+  const gain = { lines: [], total: 0, unlocked: [], freeze: false };
+  const add = (label, pts) => { if (pts > 0) { gain.lines.push([label, pts]); gain.total += pts; } };
+  if (daily) {
+    if (won) {
+      stats.streak = (stats.lastWinDay === state.day - 1 ? stats.streak : 0) + 1;
+      stats.lastWinDay = state.day; stats.best = Math.max(stats.best, stats.streak);
+      if (stats.streak % 7 === 0 && stats.freezes < FREEZE_MAX) { stats.freezes++; gain.freeze = true; }
+    } else stats.streak = 0;
+  }
+  if (won) {
+    add("Kelimeyi buldun", 10);
+    add(`${n}. tahminde`, (6 - n) * 3);
+    if (!state.hint) add("İpucusuz", 5);
+    if (daily) {
+      add("Günün bulmacası ×2", gain.total);
+      if (stats.streak > 1) add(`${stats.streak} günlük seri`, Math.min(stats.streak, 10) * 2);
+    }
+  } else add("Denediğin için", 2);
+  profile.ink += gain.total;
+  gain.unlocked = checkMilestones();
+  state.gain = gain;
+  saveStats(); saveProfile();
+}
+
+function applyTheme() {
+  if (profile.theme && profile.theme !== "sabah") document.body.dataset.theme = profile.theme;
+  else delete document.body.dataset.theme;
+}
+
+/* ---------- kitap kurdu ---------- */
+function wormSVG(mood = "idle", wear = profile ? profile.wear : {}) {
+  const eyes = mood === "happy"
+    ? '<path d="M47 39q4-5 8 0M61 39q4-5 8 0" fill="none" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round"/>'
+    : `<circle cx="51" cy="38" r="5" fill="#fff" stroke="var(--ink)" stroke-width="1.5"/><circle cx="65" cy="38" r="5" fill="#fff" stroke="var(--ink)" stroke-width="1.5"/>
+       <circle cx="${mood === "think" ? 50 : 52}" cy="${mood === "sad" ? 40 : mood === "think" ? 36.5 : 39}" r="2.4" fill="var(--ink)"/>
+       <circle cx="${mood === "think" ? 64 : 66}" cy="${mood === "sad" ? 40 : mood === "think" ? 36.5 : 39}" r="2.4" fill="var(--ink)"/>`;
+  const brows = mood === "sad" ? '<path d="M46 31l8 2M70 31l-8 2" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/>' : "";
+  const mouth = mood === "happy" ? '<path d="M51 46q7 8 14 0z" fill="var(--ink)"/>'
+    : mood === "sad" ? '<path d="M52 50q6-5 12 0" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round"/>'
+    : mood === "think" ? '<path d="M54 48h8" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round"/>'
+    : '<path d="M52 46q6 5 12 0" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round"/>';
+  const W = {
+    glasses: '<g fill="rgba(255,255,255,.18)" stroke="var(--ink)" stroke-width="2"><circle cx="51" cy="38" r="7"/><circle cx="65" cy="38" r="7"/></g><path d="M58 38h0M41 36l3 1M75 36l-3 1" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/>',
+    bow: '<g fill="#b0392c" stroke="var(--ink)" stroke-width="1.5" stroke-linejoin="round"><path d="M49 54l9 4-9 5z"/><path d="M67 54l-9 4 9 5z"/><circle cx="58" cy="58.5" r="2.4"/></g>',
+    scarf: '<g fill="#2f7a4a" stroke="var(--ink)" stroke-width="1.5" stroke-linejoin="round"><path d="M43 53q15 9 30 0v5q-15 9-30 0z"/><path d="M63 58l7 12-5 2-6-12z"/></g><path d="M50 57.5v4M57 59v4M66 57.5v4" stroke="#faf8f2" stroke-width="1.6"/>',
+    cap: '<g stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"><path d="M42 31q16-20 32 0z" fill="#6b5b4b"/><path d="M58 31q13-2 22 4q-10 3-22-1z" fill="#5a4b3d"/></g><circle cx="58" cy="18.5" r="2" fill="var(--ink)"/>',
+    phones: '<path d="M41 41a17 17 0 0 1 34 0" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/><g fill="#b0392c" stroke="var(--ink)" stroke-width="1.5"><rect x="36" y="35" width="8" height="13" rx="3"/><rect x="72" y="35" width="8" height="13" rx="3"/></g>',
+    gradcap: '<g fill="#1c1b18" stroke="#1c1b18" stroke-linejoin="round"><path d="M47 27v6q11 6 22 0v-6z"/><path d="M38 25l20-9 20 9-20 9z"/></g><path d="M58 25l16 4v10" fill="none" stroke="#d9a21b" stroke-width="2"/><circle cx="74" cy="40" r="2.4" fill="#d9a21b"/>'
+  };
+  const pick = slot => wear && wear[slot] && W[wear[slot]] ? W[wear[slot]] : "";
+  const eyesG = `<g class="eyes">${eyes}</g>`;
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">
+    <path d="M7 78l43 6v12L7 90z" fill="var(--sheet)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M93 78l-43 6v12l43-6z" fill="var(--sheet)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M14 83l28 4M14 87l20 3M58 87l28-4M66 90l20-3" stroke="var(--hair)" stroke-width="1.5"/>
+    <path d="M44 87C38 72 62 68 58 50" fill="none" stroke="var(--ink)" stroke-width="17" stroke-linecap="round"/>
+    <path d="M44 87C38 72 62 68 58 50" fill="none" stroke="var(--worm)" stroke-width="13" stroke-linecap="round"/>
+    <path d="M44 74q6 3 11 0M50 63q5 2 9-1" fill="none" stroke="var(--ink)" stroke-width="1.4" stroke-linecap="round" opacity=".55"/>
+    ${pick("neck")}
+    <circle cx="58" cy="40" r="17" fill="var(--worm)" stroke="var(--ink)" stroke-width="2"/>
+    <circle cx="46" cy="45" r="3" fill="#b0392c" opacity=".3"/><circle cx="70" cy="45" r="3" fill="#b0392c" opacity=".3"/>
+    ${eyesG}${brows}${mouth}${pick("eyes")}${pick("head")}
+  </svg>`;
+}
+let mascotMood = "idle", sayTimer;
+function renderMascot(mood) {
+  if (mood) mascotMood = mood;
+  const el = $("mascot"); if (!el) return;
+  el.innerHTML = wormSVG(mascotMood);
+  el.className = "mascot live m-" + mascotMood;
+}
+function say(text, mood, ms = 2600) {
+  renderMascot(mood || mascotMood);
+  const b = $("bubble"); b.textContent = text; b.hidden = false;
+  clearTimeout(sayTimer); sayTimer = setTimeout(() => { b.hidden = true; if (state.status === "play") renderMascot("idle"); }, ms);
+}
+
+/* ---------- puanlama ---------- */
+function score(guess, ans) {
+  const g = [...guess], a = [...ans], res = Array(LEN).fill("miss"), left = {};
+  for (let i = 0; i < LEN; i++) { if (g[i] === a[i]) res[i] = "hit"; else left[a[i]] = (left[a[i]] || 0) + 1; }
+  for (let i = 0; i < LEN; i++) { if (res[i] !== "hit" && left[g[i]] > 0) { res[i] = "near"; left[g[i]]--; } }
+  return res;
+}
+const pattern = guess => score(guess, answer()).map(s => s[0]).join(""); // "hnmmh" — harfleri değil, yalnızca renkleri paylaşır
+
+/* ---------- tahta ve klavye ---------- */
+const $ = id => document.getElementById(id);
+const board = $("board"), kb = $("keyboard");
+const rows = [];
+for (let r = 0; r < ROWS; r++) {
+  const row = document.createElement("div"); row.className = "row";
+  const tiles = [];
+  for (let c = 0; c < LEN; c++) { const t = document.createElement("div"); t.className = "tile"; if (c === 0) t.dataset.n = r + 1; row.appendChild(t); tiles.push(t); }
+  board.appendChild(row); rows.push({ el: row, tiles });
+}
+const keyEls = {};
+const ICON_DEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12z"/><path d="M17 9.5l-5 5M12 9.5l5 5"/></svg>';
+KEYS.forEach(line => {
+  const kr = document.createElement("div"); kr.className = "krow";
+  line.forEach(k => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "key";
+    if (k === "ENTER") { b.classList.add("wide", "enter"); b.textContent = "GİR"; b.setAttribute("aria-label", "Tahmini gönder"); }
+    else if (k === "DEL") { b.classList.add("wide"); b.innerHTML = ICON_DEL; b.setAttribute("aria-label", "Sil"); }
+    else b.textContent = k;
+    b.addEventListener("click", () => { b.blur(); press(k); });
+    keyEls[k] = b; kr.appendChild(b);
+  });
+  kb.appendChild(kr);
+});
+
+const RANK = { miss: 1, near: 2, hit: 3 };
+function paintKeys() {
+  const best = {};
+  state.guesses.forEach(g => score(g, answer()).forEach((s, i) => {
+    const ch = [...g][i];
+    if (!best[ch] || RANK[s] > RANK[best[ch]]) best[ch] = s;
+  }));
+  ALPHA.forEach(ch => {
+    const el = keyEls[ch]; el.classList.remove("hit", "near", "miss");
+    if (best[ch]) el.classList.add(best[ch]);
+  });
+}
+
+function renderBoard() {
+  rows.forEach((row, r) => {
+    const guess = state.guesses[r];
+    const text = guess ?? (r === state.guesses.length && state.status === "play" ? state.current : "");
+    const chars = [...text], res = guess ? score(guess, answer()) : null;
+    row.el.classList.toggle("active", r === state.guesses.length && state.status === "play");
+    row.tiles.forEach((t, c) => {
+      t.textContent = chars[c] || "";
+      t.className = "tile" + (chars[c] ? " filled" : "") + (res ? " " + res[c] : "");
+      t.style.animation = "none";
+    });
+  });
+  requestAnimationFrame(() => rows.forEach(r => r.tiles.forEach(t => t.style.animation = "")));
+  paintKeys();
+  renderHint();
+  renderChrome();
+  renderMascot(state.status === "won" ? "happy" : state.status === "lost" ? "sad" : "idle");
+}
+
+const ICON_BULB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>';
+let hintKey = "";
+function renderHint() {
+  const bar = $("hint-slot"); if (!bar || !state) return;
+  const mark = html => { const k = state.mode + ":" + state.idx + ":" + html.slice(0, 20); const fresh = k !== hintKey; hintKey = k; return fresh ? html.replace('class="hint-', 'class="fresh hint-') : html; };
+  const [, cat, def] = WORDS[state.idx];
+  const text = `<div class="hint-text"><span class="chip ${cat}">${CAT[cat]}</span>${def}</div>`;
+  if (state.status !== "play") { bar.innerHTML = ""; return; }
+  if (state.mode === "multi") { bar.innerHTML = MP.v && MP.room && MP.room.hintV === MP.v ? mark(text) : ""; return; }
+  if (state.hint) { bar.innerHTML = mark(text); return; }
+  const left = 4 - state.guesses.length;
+  bar.innerHTML = `<button class="hint-btn" id="btn-hint" type="button" ${left > 0 ? "disabled" : ""}>${ICON_BULB}${left > 0 ? `İpucu · ${left} tahmin sonra` : "İpucu al"}</button>`;
+  if (left <= 0) $("btn-hint").addEventListener("click", () => { state.hint = true; save(); renderHint(); say("Bunu sana söylemedim!", "think"); });
+}
+
+/* Moda göre manşet */
+function renderChrome() {
+  const group = MP.on && MP.role === "group", solo = !MP.on;
+  document.body.classList.toggle("multi", group);
+  $("btn-mp").classList.toggle("live", MP.on);
+  $("btn-stats").hidden = !solo; $("btn-shop").hidden = !solo;
+  $("modes").hidden = !solo;
+  $("btn-new").hidden = !(solo && state && state.mode === "free");
+  $("mode-daily").setAttribute("aria-selected", !!state && state.mode === "daily");
+  $("mode-free").setAttribute("aria-selected", !!state && state.mode === "free");
+  $("mpbar").hidden = !group;
+  $("ink-n").textContent = profile ? profile.ink : 0;
+  renderSub();
+  $("issue").textContent = group ? `Yarışma ${MP.code}` : state && state.mode === "free" ? "Serbest oyun" : `Bulmaca No. ${dayNo()}`;
+  $("date").textContent = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Istanbul" });
+}
+function renderSub() { $("sub").innerHTML = `Kalan <b>${ROWS - state.guesses.length}/${ROWS}</b>`; }
+/* sayıyı güçlü ease-out ile saydır */
+function countUp(el, from, to, D = 700) {
+  if (reduced || from === to) { el.textContent = to; return; }
+  const t0 = performance.now(), ease = p => 1 - Math.pow(1 - p, 3);
+  (function f(t) { const p = Math.min(1, (t - t0) / D); el.textContent = Math.round(from + (to - from) * ease(p)); if (p < 1) requestAnimationFrame(f); })(t0);
+  setTimeout(() => { el.textContent = to; }, D + 120); // kare çizimi durursa da son değer yazılsın
+}
+function bumpInk(from = profile.ink) {
+  const el = $("ink"); el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump");
+  countUp($("ink-n"), from, profile.ink);
+}
+/* kazanılan mürekkep, bulunan satırdan manşetteki sayaca damla damla uçar */
+const DROP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c3.8 5 6.5 8.6 6.5 11.8a6.5 6.5 0 0 1-13 0c0-3.2 2.7-6.8 6.5-11.8z" fill="currentColor"/></svg>';
+function flyInk(fromEl, inkBefore) {
+  const target = $("ink");
+  if (reduced || !fromEl || !target.animate) { bumpInk(inkBefore); return; }
+  const a = fromEl.getBoundingClientRect(), b = target.getBoundingClientRect();
+  const tx = b.left + 14 - 7, ty = b.top + b.height / 2 - 7, N = 6;
+  let bumped = false;
+  const land = () => { if (bumped) return; bumped = true; bumpInk(inkBefore); };
+  // animasyon bir sebeple bitmezse (sekme arka planda vb.) sayaç yine de güncellensin
+  setTimeout(() => { land(); setTimeout(() => document.querySelectorAll(".fly-drop").forEach(x => x.remove()), 600); }, 1400);
+  for (let i = 0; i < N; i++) {
+    const d = document.createElement("span"); d.className = "fly-drop"; d.innerHTML = DROP_SVG;
+    document.body.appendChild(d);
+    const sx = a.left + a.width * (i + .5) / N - 7, sy = a.top + a.height / 2 - 7;
+    const anim = d.animate([
+      { transform: `translate(${sx}px, ${sy}px) scale(.4)`, opacity: 0 },
+      { transform: `translate(${sx}px, ${sy - 26}px) scale(1)`, opacity: 1, offset: .25 },
+      { transform: `translate(${tx}px, ${ty}px) scale(.55)`, opacity: .85 }
+    ], { duration: 720, delay: i * 45, easing: "cubic-bezier(0.77, 0, 0.175, 1)", fill: "forwards" });
+    anim.onfinish = () => { d.remove(); land(); };
+  }
+}
+/* tema ve mod değişimini çapraz geçişle yap (destekleyen tarayıcılarda) */
+function withVT(fn) {
+  if (!reduced && document.startViewTransition) document.startViewTransition(fn); else fn();
+}
+
+/* ---------- oyun akışı ---------- */
+const anyOpen = () => [...document.querySelectorAll(".overlay")].some(o => !o.hidden);
+function press(k) {
+  if (busy || MP.countdown || state.status !== "play" || anyOpen()) return;
+  const cur = [...state.current];
+  if (k === "ENTER") return submit();
+  if (k === "DEL") { cur.pop(); state.current = cur.join(""); typeRefresh(); return; }
+  if (ALPHA.has(k) && cur.length < LEN) { state.current += k; typeRefresh(); }
+}
+function typeRefresh() {
+  const row = rows[state.guesses.length], chars = [...state.current];
+  row.tiles.forEach((t, c) => {
+    t.textContent = chars[c] || "";
+    t.classList.toggle("filled", !!chars[c]);
+  });
+  save();
+}
+function shakeRow(row, msg) {
+  toast(msg);
+  row.el.classList.remove("shake"); void row.el.offsetWidth; row.el.classList.add("shake");
+}
+
+function submit() {
+  const guess = state.current, row = rows[state.guesses.length];
+  if ([...guess].length < LEN) return shakeRow(row, "Kelime 5 harf olmalı");
+  if (!VALID.has(guess)) return shakeRow(row, "TDK sözlüğünde böyle bir kelime yok");
+  const res = score(guess, answer());
+  state.guesses.push(guess); state.current = "";
+  renderSub();
+  const won = guess === answer(), lost = !won && state.guesses.length === ROWS, solo = state.mode !== "multi";
+  const inkBefore = profile ? profile.ink : 0;
+  if (won || lost) {
+    state.status = won ? "won" : "lost";
+    if (solo) recordSolo(won);
+  }
+  save();
+  if (!solo) writeProgress();
+  busy = true;
+  row.el.classList.remove("active");
+  const step = reduced ? 0 : 260, half = reduced ? 0 : 190;
+  row.tiles.forEach((t, c) => {
+    setTimeout(() => { t.classList.remove("filled"); t.classList.add("flip"); }, c * step);
+    setTimeout(() => t.classList.add(res[c]), c * step + half);
+  });
+  setTimeout(() => {
+    row.tiles.forEach(t => t.classList.remove("flip"));
+    busy = false;
+    paintKeys(); renderHint();
+    const hits = res.filter(s => s === "hit").length, nears = res.filter(s => s === "near").length;
+    if (won) {
+      toast(WIN_MSG[state.guesses.length - 1]);
+      renderMascot("happy");
+      if (!reduced) row.tiles.forEach((t, c) => setTimeout(() => t.classList.add("dance"), c * 90));
+      if (solo) { flyInk(row.el, inkBefore); confetti(); setTimeout(openEnd, reduced ? 600 : 1500); }
+      else { const rd = MP.v; setTimeout(() => showGroupDone(rd), reduced ? 300 : 1300); }
+    } else if (lost) {
+      renderMascot("sad");
+      if (solo) { bumpInk(inkBefore); toast(answer(), 2600); setTimeout(openEnd, 1600); }
+      else { const rd = MP.v; setTimeout(() => showGroupDone(rd), 900); }
+    } else {
+      rows[state.guesses.length].el.classList.add("active");
+      if (hits >= 3) say("Çok yaklaştın!", "happy");
+      else if (!hits && !nears) say("Bu harfler yok, eledik.", "think");
+      else if (state.guesses.length === 5) say("Son hak, dikkat!", "think");
+    }
+  }, (LEN - 1) * step + 400);
+}
+
+function newFreeGame() {
+  state = newFree(); save();
+  closeAll(); renderBoard();
+}
+
+/* ---------- tek kişilik: sonuç ve skor penceresi ---------- */
+let endTimer;
+function openEnd() {
+  const over = state.status !== "play", daily = state.mode === "daily";
+  const endMood = !over ? "idle" : state.status === "won" ? "happy" : "sad";
+  $("end-mascot").innerHTML = wormSVG(endMood); $("end-mascot").className = "mascot big m-" + endMood;
+  $("end-h").textContent = over ? (state.status === "won" ? "Tebrikler" : "Olmadı bu sefer") : "Skor";
+  $("end-lead").textContent = over
+    ? (state.status === "won" ? `Kelimeyi ${state.guesses.length}. tahminde buldun.` : "Kelime buydu:")
+    : "Bu cihazda oynanan oyunlar";
+  $("end-word").hidden = !over;
+  if (over) {
+    $("answer").innerHTML = answerTiles(state.status === "won" ? "hit" : "miss");
+    $("def").innerHTML = defHtml();
+  }
+  const g = over && state.gain;
+  $("gain").hidden = !g;
+  if (g) {
+    const nL = g.lines.length, dStamp = (nL + 1) * 55 + 420;
+    $("gain").innerHTML = `<ul>${g.lines.map(([l, p], i) => `<li style="--i:${i}"><span>${esc(l)}</span><span>+${p}</span></li>`).join("")}<li class="tot" style="--i:${nL}"><span>Mürekkep</span><span>+<b id="gain-total">0</b></span></li></ul>` +
+      (g.freeze ? `<div class="unlock" style="--d:${dStamp}ms">7 günlük seri: bir seri koruma kazandın</div>` : "") +
+      g.unlocked.map((u, k) => `<div class="unlock" style="--d:${dStamp + (k + (g.freeze ? 1 : 0)) * 160}ms">${u.n}. kelime: <b>${esc(ITEMS[u.id].name)}</b> açıldı · +${MILE_INK} mürekkep</div>`).join("");
+    setTimeout(() => { const el = $("gain-total"); if (el) countUp(el, 0, g.total, 600); }, nL * 55 + 180);
+  }
+  $("s-played").textContent = stats.played;
+  $("s-rate").textContent = stats.played ? Math.round(stats.wins / stats.played * 100) : 0;
+  $("s-streak").textContent = stats.streak;
+  $("s-streak").classList.toggle("up", !!(g && daily && state.status === "won"));
+  $("s-best").textContent = stats.best;
+  const max = Math.max(1, ...stats.dist);
+  $("dist").innerHTML = stats.dist.map((n, i) => {
+    const now = state.status === "won" && state.guesses.length === i + 1;
+    return `<div class="bar${now ? " now" : ""}"><span>${i + 1}</span><i style="width:${Math.max(8, n / max * 100)}%">${n}</i></div>`;
+  }).join("");
+  const tickNext = () => {
+    const ms = msToNextDay(), h = Math.floor(ms / 3600e3), m = Math.floor(ms / 60e3) % 60, s = Math.floor(ms / 1000) % 60;
+    $("next-in").textContent = `Yeni günün bulmacası ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")} sonra`;
+  };
+  clearInterval(endTimer);
+  $("next-in").hidden = !(daily ? over : dailyDone());
+  if (!$("next-in").hidden) { tickNext(); endTimer = setInterval(tickNext, 1000); }
+  $("btn-share").hidden = !over;
+  $("btn-next").textContent = !over ? "Devam et" : daily ? "Serbest oyna" : "Yeni kelime";
+  $("end").hidden = false;
+}
+const answerTiles = cls => [...answer()].map(ch => `<div class="tile ${cls}">${ch}</div>`).join("");
+const defHtml = () => { const [, cat, def] = WORDS[state.idx]; return `<span class="chip ${cat}">${CAT[cat]}</span>${def}`; };
+
+/* ---------- dükkân ---------- */
+let shopTab = "theme", buyArm = null, justBought = null;
+function openShop() { renderShop(); $("shop").hidden = false; }
+function renderShop() {
+  $("shop-mascot").innerHTML = wormSVG("happy");
+  $("shop-ink").textContent = profile.ink;
+  $("shop-freeze").innerHTML = `Seri koruma: <b>${stats.freezes}/${FREEZE_MAX}</b> ` +
+    (stats.freezes < FREEZE_MAX ? `<button class="link-btn" type="button" data-buy="freeze" ${profile.ink < FREEZE_PRICE ? "disabled" : ""}>${buyArm === "freeze" ? "Onayla" : `${FREEZE_PRICE} ile al`}</button>` : "");
+  $("miles").innerHTML = MILESTONES.map(([n, id]) => {
+    const done = stats.wins >= n, pct = Math.min(100, stats.wins / n * 100);
+    return `<li class="${done ? "done" : ""}"><span class="n">${n} kelime</span><span class="track"><i style="width:${pct}%"></i></span><span class="rw">${esc(ITEMS[id].name)}</span></li>`;
+  }).join("") + `<li class="sum">Bulduğun kelime: <b>${stats.wins}</b> · Her taşta +${MILE_INK} mürekkep</li>`;
+  $("shop-tab-theme").setAttribute("aria-selected", shopTab === "theme");
+  $("shop-tab-wear").setAttribute("aria-selected", shopTab === "wear");
+  $("items").innerHTML = Object.entries(ITEMS).filter(([, it]) => it.kind === (shopTab === "theme" ? "theme" : "wear")).map(([id, it]) => {
+    const own = profile.owned.includes(id);
+    const on = it.kind === "theme" ? profile.theme === id : profile.wear[it.slot] === id;
+    const prev = it.kind === "theme"
+      ? `<span class="swatch" style="background:${SWATCH[id][0]}">${SWATCH[id].slice(1).map(c => `<i style="background:${c}"></i>`).join("")}</span>`
+      : `<span class="mascot">${wormSVG("idle", Object.assign({}, profile.wear, { [it.slot]: id }))}</span>`;
+    const mile = milestoneOf(id);
+    let btn;
+    if (own) btn = it.kind === "theme"
+      ? `<button class="btn ${on ? "" : "ghost"}" type="button" data-use="${id}" ${on ? "disabled" : ""}>${on ? "Kullanılıyor" : "Kullan"}</button>`
+      : `<button class="btn ${on ? "" : "ghost"}" type="button" data-use="${id}">${on ? "Çıkar" : "Giy"}</button>`;
+    else btn = `<button class="btn ghost" type="button" data-buy="${id}" ${profile.ink < it.price ? "disabled" : ""}>${buyArm === id ? "Onayla" : `${it.price} mürekkep`}</button>`;
+    return `<div class="item${on ? " on" : ""}${justBought === id ? " just" : ""}">${prev}<span class="nm">${esc(it.name)}</span>` +
+      `<span class="note2">${own ? (it.desc || "Sende var") : mile ? `${mile}. kelimede hediye` : (it.desc || "Dükkânda")}</span>${btn}</div>`;
+  }).join("");
+  $("shop").querySelectorAll("[data-buy]").forEach(b => b.addEventListener("click", () => buy(b.dataset.buy)));
+  $("shop").querySelectorAll("[data-use]").forEach(b => b.addEventListener("click", () => use(b.dataset.use)));
+}
+function buy(id) {
+  const price = id === "freeze" ? FREEZE_PRICE : ITEMS[id].price;
+  if (profile.ink < price) return;
+  if (buyArm !== id) { buyArm = id; renderShop(); setTimeout(() => { if (buyArm === id) { buyArm = null; renderShop(); } }, 4000); return; }
+  buyArm = null;
+  profile.ink -= price;
+  if (id === "freeze") { stats.freezes = Math.min(FREEZE_MAX, stats.freezes + 1); saveStats(); toast("Seri koruma alındı"); }
+  else { profile.owned.push(id); justBought = id; toast(`${ITEMS[id].name} senin`); use(id, true); justBought = null; }
+  saveProfile(); renderShop(); renderChrome();
+}
+function use(id, fromBuy) {
+  const it = ITEMS[id];
+  if (it.kind === "theme") { profile.theme = id; withVT(applyTheme); }
+  else profile.wear[it.slot] = profile.wear[it.slot] === id && !fromBuy ? null : id;
+  saveProfile(); renderShop(); renderMascot();
+  if (it.kind === "wear") { const m = $("shop-mascot"); m.classList.remove("pop"); void m.offsetWidth; m.classList.add("pop"); }
+}
+$("shop-tab-theme").addEventListener("click", () => { shopTab = "theme"; renderShop(); });
+$("shop-tab-wear").addEventListener("click", () => { shopTab = "wear"; renderShop(); });
+
+/* ---------- pencereler ve düğmeler ---------- */
+const SOLO_OVERLAYS = ["help", "end", "mp", "shop"];
+function closeAll() { SOLO_OVERLAYS.forEach(id => $(id).hidden = true); clearInterval(endTimer); }
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closeAll));
+SOLO_OVERLAYS.forEach(id => $(id).addEventListener("click", e => { if (e.target === $(id)) closeAll(); }));
+$("btn-help").addEventListener("click", () => { $("help").hidden = false; });
+$("btn-stats").addEventListener("click", openEnd);
+$("btn-shop").addEventListener("click", openShop);
+$("ink").addEventListener("click", () => { if (!MP.on) openShop(); });
+$("mode-daily").addEventListener("click", () => setMode("daily"));
+$("mode-free").addEventListener("click", () => setMode("free"));
+$("btn-new").addEventListener("click", () => { $("btn-new").blur(); newFreeGame(); toast("Yeni kelime hazır"); });
+$("btn-next").addEventListener("click", () => {
+  if (state.status === "play") closeAll();
+  else if (state.mode === "daily") setMode("free");
+  else newFreeGame();
+});
+$("btn-share").addEventListener("click", async () => {
+  const grid = state.guesses.map(g => score(g, answer()).map(s => s === "hit" ? "🟩" : s === "near" ? "🟨" : "🟥").join("")).join("\n");
+  const res = state.status === "won" ? state.guesses.length : "X";
+  const head = state.mode === "daily"
+    ? `Harfiye No. ${state.day} · ${res}/6${state.hint ? " (ipuçlu)" : ""}${stats.streak > 1 ? ` · ${stats.streak} gün seri` : ""}`
+    : `Harfiye (serbest) · ${res}/6${state.hint ? " (ipuçlu)" : ""}`;
+  const link = /^https?:$/.test(location.protocol) ? "\n" + location.origin : "";
+  try { await navigator.clipboard.writeText(`${head}\n${grid}${link}`); toast("Panoya kopyalandı"); }
+  catch (e) { toast("Kopyalanamadı, ekran görüntüsü al"); }
+});
+
+/* ---------- fiziksel klavye ---------- */
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "Escape") { closeAll(); return; }
+  if (anyOpen() || e.target.tagName === "INPUT") return;
+  if (e.key === "Enter") { e.preventDefault(); press("ENTER"); return; }
+  if (e.key === "Backspace") { e.preventDefault(); press("DEL"); return; }
+  if (e.key.length !== 1) return;
+  const ch = e.key.toLocaleUpperCase("tr-TR");
+  if (ALPHA.has(ch)) { e.preventDefault(); press(ch); }
+});
+
+/* ---------- bildirim ---------- */
+let toastTimer;
+function toast(msg, ms = 1600) {
+  const t = $("toast"); t.textContent = msg; t.classList.remove("out");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add("out"), ms);
+}
+
+/* =====================================================================
+   GRUP YARIŞMASI (Firebase Firestore)
+   kelime_odalar/{KOD}                 → yarışma: durum, tur, kelime sırası, son turun sonuçları
+   kelime_odalar/{KOD}/oyuncular/{id}  → her grubun bu turki ilerlemesi (yalnızca renk desenleri) ve tur geçmişi
+   Grup telefonları yalnızca yarışma belgesini dinler (tur başladı / bitti).
+   Grupların canlı durumunu yalnızca yönetici ekranı okur; okuma kotası bu yüzden düşük kalır.
+   ===================================================================== */
+const MAX_GROUPS = 40, COUNTDOWN_MS = 3000;
+/* rv: turun sürümü; eski kayıtlarda yoksa tur numarası */
+const rv = r => (r && (r.v || r.round)) || 0;
+const MP = { on: false, role: null, F: null, code: null, gid: null, name: "", room: null, groups: {}, round: 0, v: 0, changeArm: 0,
+  countdown: false, shownEnd: 0, unsub: [], queue: Promise.resolve(), tick: 0, adTab: "round", showWord: false, armed: null, ending: false };
+const CODE_CHARS = "ABCDEFGHJKLMNPRSTUVYZ23456789";
+const makeCode = () => Array.from({ length: 4 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join("");
+/* Yönetici şifresi: kodda şifrenin kendisi değil, SHA-256 özeti durur */
+const ADMIN_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+const K_ADMIN_OK = "harfiye-admin-ok";
+async function checkAdminPass(pass) {
+  try {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pass));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("") === ADMIN_HASH;
+  } catch (e) { return false; }
+}
+const newId = () => "g" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+
+async function fb() {
+  if (MP.F) return MP.F;
+  const V = "10.12.0";
+  const appMod = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
+  const fs = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+  const app = appMod.initializeApp(FIREBASE_CONFIG, "harfiye");
+  MP.F = Object.assign({}, fs, { db: fs.getFirestore(app) });
+  return MP.F;
+}
+const roomRef = code => MP.F.doc(MP.F.db, "kelime_odalar", code);
+const grpRef = (code, gid) => MP.F.doc(MP.F.db, "kelime_odalar", code, "oyuncular", gid);
+const grpCol = code => MP.F.collection(MP.F.db, "kelime_odalar", code, "oyuncular");
+function fbError(e) {
+  console.error(e);
+  toast(e && e.code === "permission-denied" ? "Firebase kuralları izin vermiyor (kelime_odalar)" : "Bağlantı sorunu, tekrar dene", 2600);
+}
+
+/* --- giriş penceresi: gruba katıl / yönetici --- */
+let mpTab = "join";
+function setTab(t) {
+  mpTab = t;
+  $("tab-join").setAttribute("aria-selected", t === "join");
+  $("tab-admin").setAttribute("aria-selected", t === "admin");
+  $("name-field").hidden = t !== "join";
+  $("admin-note").hidden = t !== "admin";
+  $("pass-field").hidden = t !== "admin";
+  $("code-label").textContent = t === "join" ? "Yarışma kodu" : "Yarışma kodu (isteğe bağlı)";
+  updateGo();
+}
+function updateGo() {
+  $("mp-go").textContent = mpTab === "join" ? "Katıl" : ($("mp-code").value.length === 4 ? "Sıralama ekranını aç" : "Yeni yarışma kur");
+}
+$("tab-join").addEventListener("click", () => setTab("join"));
+$("tab-admin").addEventListener("click", () => setTab("admin"));
+$("mp-code").addEventListener("input", e => {
+  e.target.value = e.target.value.toLocaleUpperCase("tr-TR").replace(/İ/g, "I").split("").filter(c => CODE_CHARS.includes(c)).join("").slice(0, 4);
+  updateGo();
+});
+$("btn-mp").addEventListener("click", () => {
+  if (MP.on && MP.role === "admin") { $("admin").hidden = false; return; }
+  if (MP.on) {
+    if (MP.room && MP.room.status === "playing" && state.status === "play") {
+      if (Date.now() - (MP.leaveArm || 0) < 3000) { exitMulti("Yarışmadan ayrıldınız"); return; }
+      MP.leaveArm = Date.now(); toast("Yarışmadan çıkmak için tekrar bas", 2600); return;
+    }
+    showGroupPanel(true); return;
+  }
+  $("mp-name").value = store.get(K_NAME, "");
+  setTab("join"); $("mp").hidden = false;
+  setTimeout(() => $("mp-name").focus(), 50);
+});
+$("mp-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const code = $("mp-code").value;
+  const go = $("mp-go");
+  try {
+    if (mpTab === "join") {
+      const name = $("mp-name").value.trim().replace(/\s+/g, " ").slice(0, 18);
+      if (!name) { toast("Grup adını yaz"); return; }
+      if (code.length !== 4) { toast("Yarışma kodu 4 karakter"); return; }
+      store.set(K_NAME, name);
+      go.disabled = true;
+      await joinGroup(code, name, false);
+    } else {
+      if (code && code.length !== 4) { toast("Yarışma kodu 4 karakter"); return; }
+      go.disabled = true;
+      if (!(await checkAdminPass($("mp-pass").value))) { toast("Yönetici şifresi yanlış"); $("mp-pass").select(); return; }
+      sess.set(K_ADMIN_OK, true); $("mp-pass").value = "";
+      await (code ? openAdmin(code, false) : createContest());
+    }
+  } catch (err) { if (err && err.msg) toast(err.msg, 2400); else fbError(err); }
+  finally { go.disabled = false; }
+});
+
+/* --- yönetici: yarışma kur --- */
+async function createContest() {
+  const F = await fb();
+  for (let i = 0; i < 6; i++) {
+    const code = makeCode(), ref = roomRef(code);
+    const ok = await F.runTransaction(F.db, async tx => {
+      const s = await tx.get(ref);
+      if (s.exists()) return false;
+      tx.set(ref, { status: "lobby", round: 0, v: 0, cancelled: [], idx: -1, used: [], results: null, startedAt: null, endedAt: null, createdAt: F.serverTimestamp() });
+      return true;
+    });
+    if (ok) return openAdmin(code, true);
+  }
+  throw { msg: "Yarışma kurulamadı, tekrar dene" };
+}
+
+/* --- grup: katıl --- */
+async function joinGroup(code, name, resume) {
+  const F = await fb();
+  const s = await F.getDoc(roomRef(code));
+  if (!s.exists()) throw { msg: "Bu kodla bir yarışma yok" };
+  const back = sess.get(K_MP, null);
+  let gid = back && back.code === code && back.role === "group" && back.gid ? back.gid : null;
+  if (gid && resume) {
+    try { await F.updateDoc(grpRef(code, gid), { name }); }
+    catch (e) { if (e && e.code === "not-found") throw { msg: "Grubunuz yarışmadan çıkarılmış" }; throw e; }
+  } else {
+    const cnt = await F.getCountFromServer(grpCol(code));
+    if (cnt.data().count >= MAX_GROUPS) throw { msg: `Yarışma dolu (${MAX_GROUPS} grup)` };
+    gid = newId();
+    await F.setDoc(grpRef(code, gid), { name, at: Date.now(), round: 0, v: 0, rows: [], n: 0, done: false, won: false, ms: null, hist: {} });
+  }
+  MP.on = true; MP.role = "group"; MP.code = code; MP.name = name; MP.gid = gid; MP.round = 0; MP.v = 0; MP.shownEnd = 0; MP.room = null;
+  sess.set(K_MP, { code, role: "group", name, gid });
+  closeAll();
+  MP.unsub.push(F.onSnapshot(roomRef(code), onRoomGroup, fbError));
+  renderChrome(); renderStrip();
+}
+
+function exitMulti(msg) {
+  MP.unsub.forEach(u => { try { u(); } catch (e) {} }); MP.unsub = [];
+  clearInterval(MP.tick); MP.tick = 0;
+  MP.on = false; MP.role = null; MP.code = null; MP.gid = null; MP.room = null; MP.groups = {}; MP.round = 0; MP.v = 0; MP.countdown = false;
+  sess.del(K_MP); sess.del(K_MPGAME); sess.del(K_ADMIN_OK);
+  ["wait", "gres", "count", "admin"].forEach(id => $(id).hidden = true);
+  state = profile.lastMode === "free" ? loadFree() : loadDaily();
+  renderBoard(); $("mpbar").innerHTML = "";
+  if (msg) toast(msg, 2400);
+}
+$("btn-leave").addEventListener("click", () => exitMulti("Yarışmadan ayrıldınız"));
+$("btn-leave2").addEventListener("click", () => exitMulti("Yarışmadan ayrıldınız"));
+
+/* --- grup: yarışma belgesi değişince --- */
+function onRoomGroup(snap) {
+  if (!MP.on || MP.role !== "group") return;
+  if (!snap.exists()) { exitMulti("Yarışma kapandı"); return; }
+  const r = snap.data(); MP.room = r;
+  if (r.status === "playing" && rv(r) !== MP.v) beginRound(r);
+  else if (r.status === "over" && rv(r) === MP.v && MP.v) endRoundGroup(r);
+  if (r.status === "playing" && MP.v && r.hintV === MP.v && MP.hintToast !== MP.v) {
+    MP.hintToast = MP.v;
+    if (state.status === "play") toast("Yönetici ipucu gönderdi", 2400);
+  }
+  renderChrome(); renderStrip(); renderHint(); showGroupPanel(false);
+}
+
+function showGroupPanel(force) {
+  const r = MP.room; if (!r) return;
+  const waiting = r.status === "lobby" || (r.status === "over" && rv(r) !== MP.v);
+  $("wait").hidden = !waiting;
+  if (waiting) {
+    $("wait-group").textContent = MP.name;
+    $("wait-lead").textContent = r.round
+      ? `${r.round}. tur bitti. Yönetici yeni turu başlatınca oyun kendiliğinden açılır.`
+      : "Yönetici turu başlatınca oyun kendiliğinden açılır.";
+  } else if (force && (r.status === "over" || state.status !== "play")) $("gres").hidden = false;
+}
+
+function beginRound(r) {
+  const changed = MP.v && MP.round === r.round; // aynı tur, yeni kelime
+  MP.round = r.round; MP.v = rv(r);
+  const saved = sess.get(K_MPGAME, null);
+  const resume = saved && saved.code === MP.code && saved.v === MP.v && saved.state && saved.state.idx === r.idx;
+  if (changed && !resume) toast("Yönetici kelimeyi değiştirdi, yeni kelime geliyor", 2600);
+  state = resume ? saved.state : { mode: "multi", idx: r.idx, guesses: [], current: "", status: "play", t0: 0, ms: null };
+  ["wait", "gres", "help", "end", "mp"].forEach(id => $(id).hidden = true);
+  save(); renderBoard(); renderStrip();
+  if (!resume) {
+    writeProgress();
+    countdown(() => { state.t0 = Date.now(); save(); startTick(); });
+  } else {
+    if (!state.t0) { state.t0 = Date.now(); save(); }
+    startTick();
+    if (state.status !== "play") showGroupDone();
+  }
+}
+
+function countdown(done) {
+  MP.countdown = true;
+  const el = $("count"), n = $("count-n");
+  let i = 3; el.hidden = false; n.textContent = i;
+  const tick = () => {
+    i--;
+    if (i > 0) { n.textContent = i; n.style.animation = "none"; void n.offsetWidth; n.style.animation = ""; setTimeout(tick, 800); }
+    else if (i === 0) { n.textContent = "BAŞLA"; n.style.fontSize = "min(18vw, 110px)"; setTimeout(tick, 600); }
+    else { el.hidden = true; n.style.fontSize = ""; MP.countdown = false; done(); }
+  };
+  setTimeout(tick, 800);
+}
+
+/* Grup telefonundaki şerit: grup adı + süre */
+function renderStrip() {
+  const bar = $("mpbar");
+  if (!MP.on || MP.role !== "group") { bar.innerHTML = ""; return; }
+  bar.innerHTML = `<div class="gchip"><span class="gn">${esc(MP.name)}</span><span class="rd">${MP.round ? `Tur ${MP.round}` : "Bekleniyor"}</span><span class="clock" id="g-clock">0:00</span></div>`;
+  renderClock();
+}
+function startTick() { clearInterval(MP.tick); MP.tick = setInterval(renderClock, 500); renderClock(); }
+function renderClock() {
+  const el = $("g-clock"); if (!el || !state || state.mode !== "multi") return;
+  const ms = state.status === "play" ? (state.t0 ? Date.now() - state.t0 : 0) : (state.ms || 0);
+  el.textContent = fmtTime(ms);
+}
+
+/* İlerlemeyi yaz: harfler değil, yalnızca renk desenleri gider */
+function writeProgress() {
+  if (!MP.on || MP.role !== "group" || state.mode !== "multi") return Promise.resolve();
+  const F = MP.F, code = MP.code, gid = MP.gid, round = MP.round, v = MP.v;
+  const done = state.status === "won" || state.status === "lost";
+  if (done && state.ms == null) { state.ms = state.t0 ? Date.now() - state.t0 : null; save(); }
+  const body = { round, v, rows: state.guesses.map(pattern), n: state.guesses.length, done, won: state.status === "won", ms: done ? state.ms : null };
+  if (done) body["hist.v" + v] = { round, won: body.won, n: body.n, ms: body.ms };
+  MP.queue = MP.queue.then(() => F.updateDoc(grpRef(code, gid), body)).catch(e => {
+    if (e && e.code === "not-found") exitMulti("Grubunuz yarışmadan çıkarıldı"); else fbError(e);
+  });
+  return MP.queue;
+}
+
+/* Grup kendi turunu bitirdi; diğerleri hâlâ oynuyor olabilir */
+function showGroupDone(rd) {
+  if (!MP.on || MP.role !== "group" || (rd != null && rd !== MP.v)) return; // eski turdan ya da değişen kelimeden kalan zamanlayıcı
+  if (state.status !== "won" && state.status !== "lost") return;
+  if (MP.room && MP.room.status === "over" && rv(MP.room) === MP.v) return;
+  const won = state.status === "won";
+  $("gres-h").textContent = won ? "BULDUNUZ!" : "BU TUR OLMADI";
+  $("gres-lead").textContent = won ? `${state.guesses.length}. tahminde, ${fmtTime(state.ms || 0)} içinde.` : "6 tahmin hakkınız bitti.";
+  $("gres-place").hidden = true; $("gres-word").hidden = true; $("gres-list").innerHTML = "";
+  $("gres-wait").textContent = "Diğer gruplar hâlâ oynuyor olabilir. Sıralama ve kelime, yönetici turu bitirince burada görünecek.";
+  $("gres").hidden = false;
+  if (won) confetti();
+}
+
+/* Tur bitti: yönetici sonuçları yarışma belgesine yazdı */
+function endRoundGroup(r) {
+  if (state.status === "play") {
+    state.status = "over";
+    if (state.ms == null && state.t0) state.ms = Date.now() - state.t0;
+    save(); renderBoard();
+  }
+  clearInterval(MP.tick); renderClock();
+  const first = MP.shownEnd !== rv(r); MP.shownEnd = rv(r);
+  const res = Array.isArray(r.results) ? r.results : [];
+  const at = res.findIndex(x => x.gid === MP.gid), me = res[at];
+  const top = res[0] && res[0].won ? res[0] : null;
+  if (me && me.won) {
+    $("gres-h").textContent = at === 0 ? "KAZANDINIZ!" : "TUR BİTTİ";
+    $("gres-lead").textContent = at === 0 ? "Kelimeyi en hızlı siz buldunuz." : `Kazanan: ${top.name}`;
+    $("gres-place").innerHTML = `${at + 1}.<small>${res.length} grup arasında · ${fmtTime(me.ms || 0)}</small>`;
+    $("gres-place").hidden = false;
+  } else {
+    $("gres-h").textContent = "TUR BİTTİ";
+    $("gres-lead").textContent = top ? `Kazanan: ${top.name}` : "Bu turda kelimeyi bulan olmadı.";
+    $("gres-place").hidden = true;
+  }
+  $("gres-answer").innerHTML = answerTiles(me && me.won ? "hit" : "miss");
+  $("gres-def").innerHTML = defHtml();
+  $("gres-word").hidden = false;
+  const row = (x, i) => `<li class="${i === 0 && x.won ? "win" : ""}"><span class="res">${i + 1}.</span><span class="nm">${esc(x.name)}</span>${x.gid === MP.gid ? '<span class="badge you">SİZ</span>' : ""}<span class="res">${x.won ? fmtTime(x.ms || 0) : "bulamadı"}</span></li>`;
+  $("gres-list").innerHTML = res.slice(0, 5).map(row).join("") + (at >= 5 ? row(me, at) : "");
+  $("gres-wait").textContent = "Yönetici yeni turu başlatınca oyun kendiliğinden açılır.";
+  $("gres").hidden = false;
+  if (first && me && me.won && at === 0) confetti();
+}
+
+/* =====================  YÖNETİCİ: SIRALAMA EKRANI  ===================== */
+async function openAdmin(code, fresh) {
+  if (!sess.get(K_ADMIN_OK, false)) throw { msg: "Yönetici şifresi gerekli" };
+  const F = await fb();
+  if (!fresh) { const s = await F.getDoc(roomRef(code)); if (!s.exists()) throw { msg: "Bu kodla bir yarışma yok" }; }
+  MP.on = true; MP.role = "admin"; MP.code = code; MP.room = null; MP.groups = {}; MP.showWord = false; MP.adTab = "round";
+  sess.set(K_MP, { code, role: "admin" });
+  closeAll();
+  $("ad-code").textContent = code;
+  $("admin").hidden = false;
+  MP.unsub.push(F.onSnapshot(roomRef(code), s => {
+    if (!s.exists()) { exitMulti("Yarışma bulunamadı"); return; }
+    MP.room = s.data(); renderAdmin(); maybeAutoEnd();
+  }, fbError));
+  MP.unsub.push(F.onSnapshot(grpCol(code), snap => {
+    const g = {}; snap.forEach(d => g[d.id] = d.data()); MP.groups = g;
+    renderAdmin(); maybeAutoEnd();
+  }, fbError));
+  clearInterval(MP.tick); MP.tick = setInterval(renderAdminClock, 500);
+  renderChrome(); renderAdmin();
+}
+
+/* Bu turun sıralaması: önce bulanlar (süreye göre), sonra oynayanlar, sonra bulamayanlar */
+function roundRows(v, list) {
+  return list.map(([gid, g]) => {
+    const cur = v > 0 && rv(g) === v;
+    return { gid, g, cur, won: cur && !!g.won, done: cur && !!g.done, n: cur ? (g.n || 0) : 0, ms: cur && g.won ? g.ms : null };
+  }).sort((a, b) =>
+    (b.won - a.won) ||
+    (a.won && b.won ? (a.ms ?? 1e12) - (b.ms ?? 1e12) : 0) ||
+    (b.cur - a.cur) || (a.done - b.done) || (b.n - a.n) || ((a.g.at || 0) - (b.g.at || 0)));
+}
+/* Genel sıralama: birincilik sayısı, sonra bulduğu tur, sonra toplam süre */
+function overallRows(list, cancelled) {
+  const best = {};
+  const valid = g => Object.entries(g.hist || {}).filter(([k]) => !cancelled.includes(Number(k.slice(1))));
+  list.forEach(([, g]) => valid(g).forEach(([k, h]) => {
+    if (h && h.won && h.ms != null && (best[k] == null || h.ms < best[k])) best[k] = h.ms;
+  }));
+  return list.map(([gid, g]) => {
+    const solved = valid(g).filter(([, h]) => h && h.won);
+    return { gid, g, firsts: solved.filter(([k, h]) => h.ms === best[k]).length, solved: solved.length,
+      total: solved.reduce((s, [, h]) => s + (h.ms || 0), 0) };
+  }).sort((a, b) => b.firsts - a.firsts || b.solved - a.solved || a.total - b.total || ((a.g.at || 0) - (b.g.at || 0)));
+}
+
+const miniBoard = rowsP => `<div class="miniboard">${Array.from({ length: ROWS }, (_, r) => {
+  const p = rowsP[r] || "";
+  return `<span class="mini${p ? "" : " empty"}">${Array.from({ length: LEN }, (_, i) => `<i class="${p[i] || ""}"></i>`).join("")}</span>`;
+}).join("")}</div>`;
+
+function delBtn(gid) {
+  const armed = MP.armed && MP.armed.gid === gid && Date.now() < MP.armed.until;
+  return `<button class="del${armed ? " armed" : ""}" type="button" data-del="${esc(gid)}" aria-label="Grubu sil">${armed ? "Sil?" : "✕"}</button>`;
+}
+
+function renderAdmin() {
+  const r = MP.room; if (!r || MP.role !== "admin") return;
+  const playing = r.status === "playing";
+  const list = Object.entries(MP.groups);
+  $("ad-round").innerHTML = r.round
+    ? `${r.round}. tur<small>${playing ? "OYNANIYOR" : "BİTTİ"} · ${list.length} grup</small>`
+    : `Tur başlamadı<small>${list.length} grup katıldı</small>`;
+  $("ad-start").hidden = playing; $("ad-end").hidden = !playing; $("ad-change").hidden = !playing; $("ad-hint").hidden = !playing;
+  const hinted = playing && r.hintV === rv(r);
+  $("ad-hint").disabled = hinted;
+  $("ad-hint").textContent = hinted ? "İpucu gönderildi" : "İpucu gönder";
+  const armed = Date.now() < MP.changeArm;
+  $("ad-change").classList.toggle("armed", armed);
+  $("ad-change").textContent = armed ? "Emin misin? Tekrar bas" : "Kelimeyi değiştir";
+  $("ad-start").textContent = r.round ? "Sonraki turu başlat" : "Turu başlat";
+  $("ad-start").disabled = !list.length;
+
+  const w = $("ad-word");
+  if (r.round && r.idx >= 0) {
+    const [word, cat, def] = WORDS[r.idx];
+    const tiles = cls => `<div class="answer">${[...word].map(c => `<div class="tile ${cls}">${c}</div>`).join("")}</div>`;
+    if (!playing) w.innerHTML = tiles("hit") + `<p class="def"><span class="chip ${cat}">${CAT[cat]}</span>${def}</p>`;
+    else if (MP.showWord) w.innerHTML = tiles("") + '<button class="link-btn" type="button" id="ad-toggle">Gizle</button>';
+    else w.innerHTML = '<span class="eyebrow">Kelime gizli</span><button class="link-btn" type="button" id="ad-toggle">Göster</button>';
+    const tg = $("ad-toggle"); if (tg) tg.addEventListener("click", () => { MP.showWord = !MP.showWord; renderAdmin(); });
+  } else w.innerHTML = '<span class="eyebrow">Gruplar katılınca turu başlat</span>';
+
+  $("ad-tab-round").setAttribute("aria-selected", MP.adTab === "round");
+  $("ad-tab-all").setAttribute("aria-selected", MP.adTab === "all");
+  $("ad-empty").hidden = list.length > 0;
+  $("ad-rule").textContent = MP.adTab === "round"
+    ? "Sıralama: kelimeyi bulan gruplar süreye göre (en hızlı en üstte), sonra hâlâ oynayanlar, sonra bulamayanlar."
+    : "Sıralama: en çok birincilik, eşitlikte en çok bulunan tur, o da eşitse toplam süresi en kısa olan.";
+  const table = $("ad-table");
+  if (!list.length) { table.innerHTML = ""; renderAdminClock(); return; }
+
+  if (MP.adTab === "round") {
+    let place = 0;
+    table.innerHTML = `<thead><tr><th>Sıra</th><th>Grup</th><th>İlerleme</th><th>Tahmin</th><th>Süre</th><th>Durum</th><th></th></tr></thead><tbody>` +
+      roundRows(rv(r), list).map(x => {
+        const pos = x.won ? ++place : null;
+        const pill = !r.round ? '<span class="pill idle">Hazır</span>'
+          : x.won ? '<span class="pill win">Buldu</span>'
+          : x.done ? '<span class="pill lose">Bulamadı</span>'
+          : x.cur ? (playing ? '<span class="pill play">Oynuyor</span>' : '<span class="pill lose">Bitiremedi</span>')
+          : '<span class="pill idle">Katılmadı</span>';
+        return `<tr class="${pos === 1 ? "top1" : ""}"><td class="pos">${pos ?? "–"}</td><td class="gname">${esc(x.g.name)}</td>` +
+          `<td>${miniBoard(x.cur ? (x.g.rows || []) : [])}</td><td class="num">${x.cur ? `${x.n}/6` : "–"}</td>` +
+          `<td class="num big">${x.won ? fmtTime(x.ms || 0) : "–"}</td><td>${pill}</td><td>${delBtn(x.gid)}</td></tr>`;
+      }).join("") + "</tbody>";
+  } else {
+    table.innerHTML = `<thead><tr><th>Sıra</th><th>Grup</th><th>Birincilik</th><th>Bulduğu tur</th><th>Toplam süre</th><th></th></tr></thead><tbody>` +
+      overallRows(list, r.cancelled || []).map((x, i) => `<tr class="${i === 0 && x.solved ? "top1" : ""}"><td class="pos">${i + 1}</td><td class="gname">${esc(x.g.name)}</td>` +
+        `<td class="num big">${x.firsts}</td><td class="num">${x.solved}/${r.round || 0}</td><td class="num">${x.solved ? fmtTime(x.total) : "–"}</td><td>${delBtn(x.gid)}</td></tr>`).join("") + "</tbody>";
+  }
+  table.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", async () => {
+    const gid = b.dataset.del;
+    if (!(MP.armed && MP.armed.gid === gid && Date.now() < MP.armed.until)) {
+      MP.armed = { gid, until: Date.now() + 3000 }; renderAdmin();
+      setTimeout(() => { if (MP.armed && MP.armed.gid === gid) { MP.armed = null; renderAdmin(); } }, 3100);
+      return;
+    }
+    MP.armed = null;
+    try { await MP.F.deleteDoc(grpRef(MP.code, gid)); } catch (e) { fbError(e); }
+  }));
+  renderAdminClock();
+}
+
+function renderAdminClock() {
+  const r = MP.room, el = $("ad-clock"); if (!r || MP.role !== "admin") return;
+  let ms = 0;
+  if (r.startedAt) ms = (r.status === "playing" ? Date.now() : (r.endedAt || Date.now())) - r.startedAt - COUNTDOWN_MS;
+  el.textContent = fmtTime(Math.max(0, ms));
+}
+
+async function startRoundAdmin() {
+  const F = MP.F, ref = roomRef(MP.code);
+  $("ad-start").disabled = true;
+  try {
+    await F.runTransaction(F.db, async tx => {
+      const s = await tx.get(ref); if (!s.exists()) return;
+      const r = s.data(); if (r.status === "playing") return;
+      let used = r.used || [];
+      let pool = WORDS.map((_, i) => i).filter(i => !used.includes(i));
+      if (!pool.length) { used = []; pool = WORDS.map((_, i) => i).filter(i => i !== r.idx); }
+      const idx = pool[Math.floor(Math.random() * pool.length)];
+      tx.update(ref, { status: "playing", round: (r.round || 0) + 1, v: rv(r) + 1, idx, used: used.concat(idx), results: null, startedAt: Date.now(), endedAt: null });
+    });
+    MP.showWord = false; MP.adTab = "round";
+  } catch (e) { fbError(e); }
+  renderAdmin();
+}
+
+async function endRoundAdmin() {
+  const r = MP.room; if (!r || r.status !== "playing" || MP.ending) return;
+  MP.ending = true;
+  const v = rv(r);
+  const results = roundRows(v, Object.entries(MP.groups)).filter(x => x.cur)
+    .map(x => ({ gid: x.gid, name: String(x.g.name || "").slice(0, 18), won: x.won, n: x.n, ms: x.won ? x.ms : null }));
+  try {
+    await MP.F.runTransaction(MP.F.db, async tx => {
+      const s = await tx.get(roomRef(MP.code)); if (!s.exists()) return;
+      const d = s.data(); if (rv(d) !== v || d.status !== "playing") return;
+      tx.update(roomRef(MP.code), { status: "over", results, endedAt: Date.now() });
+    });
+  } catch (e) { fbError(e); }
+  MP.ending = false;
+}
+
+/* Bütün gruplar bitirdiyse tur kendiliğinden kapanır */
+function maybeAutoEnd() {
+  const r = MP.room;
+  if (!r || MP.role !== "admin" || r.status !== "playing") return;
+  const list = Object.values(MP.groups);
+  if (list.length && list.every(g => rv(g) === rv(r) && g.done)) endRoundAdmin();
+}
+
+$("ad-start").addEventListener("click", startRoundAdmin);
+$("ad-end").addEventListener("click", endRoundAdmin);
+
+/* Tur oynanırken kelimeyi değiştir: tur iptal edilir, aynı tur numarasıyla yeni kelime gider. Yanlışlıkla basılmasın diye iki basış ister. */
+async function changeWordAdmin() {
+  const r = MP.room; if (!r || r.status !== "playing") return;
+  if (Date.now() >= MP.changeArm) {
+    MP.changeArm = Date.now() + 5000; renderAdmin();
+    setTimeout(renderAdmin, 5100);
+    return;
+  }
+  MP.changeArm = 0;
+  const F = MP.F, ref = roomRef(MP.code);
+  $("ad-change").disabled = true;
+  try {
+    await F.runTransaction(F.db, async tx => {
+      const s = await tx.get(ref); if (!s.exists()) return;
+      const d = s.data(); if (d.status !== "playing") return;
+      let used = d.used || [];
+      let pool = WORDS.map((_, i) => i).filter(i => !used.includes(i));
+      if (!pool.length) { used = [d.idx]; pool = WORDS.map((_, i) => i).filter(i => i !== d.idx); }
+      const idx = pool[Math.floor(Math.random() * pool.length)];
+      tx.update(ref, { v: rv(d) + 1, idx, used: used.concat(idx), cancelled: (d.cancelled || []).concat(rv(d)), results: null, startedAt: Date.now(), endedAt: null });
+    });
+    MP.showWord = false;
+    toast("Kelime değiştirildi, tüm gruplara yeni kelime gitti", 2400);
+  } catch (e) { fbError(e); }
+  $("ad-change").disabled = false;
+  renderAdmin();
+}
+$("ad-change").addEventListener("click", changeWordAdmin);
+
+/* Tüm gruplara bu turun ipucunu (kategori + kısa tanım) gönder */
+async function sendHintAdmin() {
+  const r = MP.room; if (!r || r.status !== "playing" || r.hintV === rv(r)) return;
+  $("ad-hint").disabled = true;
+  try {
+    await MP.F.updateDoc(roomRef(MP.code), { hintV: rv(r) });
+    toast("İpucu tüm gruplara gönderildi", 2200);
+  } catch (e) { fbError(e); $("ad-hint").disabled = false; }
+}
+$("ad-hint").addEventListener("click", sendHintAdmin);
+$("ad-tab-round").addEventListener("click", () => { MP.adTab = "round"; renderAdmin(); });
+$("ad-tab-all").addEventListener("click", () => { MP.adTab = "all"; renderAdmin(); });
+$("ad-close").addEventListener("click", () => exitMulti("Yönetici ekranı kapandı. Yarışma açık kalır; kodla geri dönebilirsin."));
+
+/* ---------- konfeti ---------- */
+function confetti() {
+  if (reduced) return;
+  const cv = $("confetti"), ctx = cv.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1);
+  const W = innerWidth, H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const colors = ["#1c1b18", "#2f7a4a", "#d9a21b", "#b0392c", "#faf8f2"];
+  const parts = Array.from({ length: 140 }, () => ({
+    x: W / 2 + (Math.random() - .5) * 120, y: H * .38, vx: (Math.random() - .5) * 13, vy: -Math.random() * 13 - 4,
+    s: 5 + Math.random() * 6, r: Math.random() * 6, vr: (Math.random() - .5) * .35, c: colors[(Math.random() * colors.length) | 0]
+  }));
+  const t0 = performance.now();
+  (function frame(t) {
+    ctx.clearRect(0, 0, W, H);
+    parts.forEach(p => {
+      p.vy += .32; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore();
+    });
+    if (t - t0 < 2800) requestAnimationFrame(frame); else ctx.clearRect(0, 0, W, H);
+  })(t0);
+}
+
+/* ---------- başlat ---------- */
+function start(data) {
+  stats = Object.assign(emptyStats(), store.get(K_STATS, {}));
+  profile = Object.assign(emptyProfile(), store.get(K_PROFILE, {}));
+  profile.wear = Object.assign({ head: null, eyes: null, neck: null }, profile.wear);
+  applyTheme();
+  const snap = data && data.state;
+  if (snap && snap.mode === "daily" && snap.day === dayNo()) state = snap;
+  else if (snap && snap.mode === "free") state = snap;
+  else state = profile.lastMode === "free" ? loadFree() : loadDaily();
+  if (state.mode === "daily") checkStreak();
+  save();
+  renderBoard();
+  if (state.mode === "daily" && state.status === "play" && !state.guesses.length && store.get(K_SEEN, false)) setTimeout(() => say("Günün bulmacası hazır!", "happy"), 400);
+  if (FIREBASE_CONFIG) {
+    $("btn-mp").hidden = false;
+    $("help-note").innerHTML += " Grup yarışması için üstteki YARIŞMA'ya bas.";
+    const back = sess.get(K_MP, null); // sayfa yenilendiyse yarışmaya geri dön
+    if (back && back.code) fb().then(() => back.role === "admin" ? openAdmin(back.code, false) : joinGroup(back.code, back.name, true)).catch(() => sess.del(K_MP));
+  }
+  if (!store.get(K_SEEN, false)) { $("help").hidden = false; store.set(K_SEEN, true); }
+}
+start({});
+</script>
+
+</body>
+</html>

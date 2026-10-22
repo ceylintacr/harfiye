@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /kelime_odalar/{kod} {
+      allow read, write: if true;
+      match /oyuncular/{grup} {
+        allow read, write: if true;
+      }
+    }
+  }
+}
